@@ -2,6 +2,7 @@
   "name": "history-portal",
   "version": "0.1.0",
   "scripts": {
+    "dev:portal": "turbo -F portal dev",
     "check-types": "turbo check-types"
   },
   "devDependencies": {
