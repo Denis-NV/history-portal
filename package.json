@@ -1,8 +1,11 @@
 {
   "name": "history-portal",
   "version": "0.1.0",
-  "scripts": {},
-  "dependencies": {},
-  "devDependencies": {},
+  "scripts": {
+    "check-types": "turbo check-types"
+  },
+  "devDependencies": {
+    "turbo": "^2.6.3"
+  },
   "packageManager": "pnpm@10.25.0"
 }
