@@ -1,2 +1,3 @@
 config:
   gcp:project: history-portal
+  gcp:region: europe-west2  # London - see https://cloud.google.com/compute/docs/regions-zones

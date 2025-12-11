@@ -400,7 +400,7 @@ export function createCloudRunService(
   envVars: Record<string, pulumi.Input<string>>
 ) {
   return new gcp.cloudrun.Service(name, {
-    location: "europe-west1",
+    location: "europe-west2", // London region
     template: {
       spec: {
         containers: [
@@ -1341,7 +1341,7 @@ on:
 
 env:
   GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: europe-west1
+  GCP_REGION: europe-west2  # London
   SERVICE_NAME: myapp
 
 jobs:
@@ -1428,7 +1428,7 @@ jobs:
    - Set reasonable token limits
 
 4. **General:**
-   - Use `europe-west1` for lower egress costs (if EU-based)
+   - Use `europe-west2` (London) for UK-based projects, or check [GCP regions](https://cloud.google.com/compute/docs/regions-zones) for your location
    - Monitor with GCP Billing alerts
    - Review usage monthly
 
@@ -1478,7 +1478,7 @@ pnpm db:studio                    # Open Drizzle Studio
 
 # Pulumi Infrastructure
 cd infra
-pulumi stack select dev           # Switch to dev stack
+pulumi stack select staging           # Switch to staging stack
 pulumi up                         # Deploy infrastructure
 pulumi preview                    # Preview changes
 pulumi stack output               # View outputs

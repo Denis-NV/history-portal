@@ -3,7 +3,7 @@
 > **Purpose:** This document provides step-by-step instructions for setting up and managing the infrastructure for the history-portal project. It serves as both a reference for AI assistants and a reproducible guide for recreating the setup on other projects.
 
 **Last Updated:** December 11, 2025  
-**Project Status:** Initial Setup Complete
+**Project Status:** Staging Deployed ✅
 
 ---
 
@@ -15,9 +15,10 @@
 4. [Pulumi Setup](#4-pulumi-setup)
 5. [Stack Configuration](#5-stack-configuration)
 6. [Resources](#6-resources)
-7. [Common Commands](#7-common-commands)
-8. [Troubleshooting](#8-troubleshooting)
-9. [CI/CD Integration](#9-cicd-integration)
+7. [Docker & Cloud Run Deployment](#7-docker--cloud-run-deployment)
+8. [Common Commands](#8-common-commands)
+9. [Troubleshooting](#9-troubleshooting)
+10. [CI/CD Integration](#10-cicd-integration)
 
 ---
 
@@ -130,7 +131,8 @@ gcloud services enable \
   run.googleapis.com \
   artifactregistry.googleapis.com \
   secretmanager.googleapis.com \
-  cloudbuild.googleapis.com
+  cloudbuild.googleapis.com \
+  compute.googleapis.com  # Silences Pulumi GCP provider warning
 ```
 
 ### Step 5: Set Up Billing Alerts (Recommended)
@@ -224,7 +226,7 @@ config:
 ```yaml
 config:
   gcp:project: history-portal # Your GCP Project ID
-  gcp:region: europe-west1 # Optional: default region
+  gcp:region: europe-west2 # London region for UK-based projects
 ```
 
 #### package.json
@@ -238,6 +240,7 @@ config:
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@pulumi/docker": "^4.10.0",
     "@pulumi/gcp": "^9.0.0",
     "@pulumi/pulumi": "^3.113.0"
   }
@@ -278,7 +281,7 @@ Set configuration values per stack:
 
 ```bash
 # Set for current stack
-pnpm pulumi config set gcp:region europe-west1
+pnpm pulumi config set gcp:region europe-west2
 
 # Set secret (encrypted)
 pnpm pulumi config set --secret betterAuthSecret "your-secret-value"
@@ -291,33 +294,25 @@ pnpm pulumi config
 
 ## 6. Resources
 
-### Current Resources
+### Current Resources (Staging)
 
-The initial template creates a sample GCS bucket. This will be replaced with actual resources.
+| Resource          | Name             | Status      | Purpose                    |
+| ----------------- | ---------------- | ----------- | -------------------------- |
+| Artifact Registry | `portal`         | ✅ Deployed | Docker image storage       |
+| Cloud Run Service | `portal-staging` | ✅ Deployed | Next.js container hosting  |
+| IAM Policy        | `allUsers`       | ✅ Deployed | Public access to Cloud Run |
 
-```typescript
-// infra/index.ts (initial template)
-import * as pulumi from "@pulumi/pulumi";
-import * as gcp from "@pulumi/gcp";
+**Live URL:** https://portal-staging-7qac6lyjqa-ew.a.run.app
 
-// Create a GCP resource (Storage Bucket)
-const bucket = new gcp.storage.Bucket("my-bucket", {
-  location: "US",
-});
-
-// Export the DNS name of the bucket
-export const bucketName = bucket.url;
-```
+**Infrastructure Code:** [infra/index.ts](../infra/index.ts)
 
 ### Planned Resources
 
-| Resource          | Provider       | Purpose                   | Status     |
-| ----------------- | -------------- | ------------------------- | ---------- |
-| Cloud Run Service | `@pulumi/gcp`  | Next.js container hosting | 🔜 Planned |
-| Artifact Registry | `@pulumi/gcp`  | Docker image storage      | 🔜 Planned |
-| Secret Manager    | `@pulumi/gcp`  | Secrets storage           | 🔜 Planned |
-| Neon Database     | `@pulumi/neon` | PostgreSQL database       | 🔜 Planned |
-| Neon Branches     | `@pulumi/neon` | Staging/test branches     | 🔜 Planned |
+| Resource       | Provider       | Purpose               | Status     |
+| -------------- | -------------- | --------------------- | ---------- |
+| Secret Manager | `@pulumi/gcp`  | Secrets storage       | 🔜 Planned |
+| Neon Database  | `@pulumi/neon` | PostgreSQL database   | 🔜 Planned |
+| Neon Branches  | `@pulumi/neon` | Staging/test branches | 🔜 Planned |
 
 ### Adding Neon Provider (Future)
 
@@ -328,21 +323,87 @@ pnpm add @pulumi/neon
 
 ---
 
-## 7. Common Commands
+## 7. Docker & Cloud Run Deployment
+
+### Configuration Files
+
+| File                                                                | Purpose                              |
+| ------------------------------------------------------------------- | ------------------------------------ |
+| [packages/portal/next.config.ts](../packages/portal/next.config.ts) | Next.js standalone + monorepo config |
+| [packages/portal/Dockerfile](../packages/portal/Dockerfile)         | Multi-stage Docker build             |
+| [.dockerignore](../.dockerignore)                                   | Excludes files from Docker context   |
+
+### Key Configuration
+
+**Next.js** requires two settings for Cloud Run deployment in a monorepo:
+
+- `output: "standalone"` — Creates a self-contained build
+- `outputFileTracingRoot` — Points to monorepo root for workspace imports
+
+**Dockerfile** uses a multi-stage build (deps → builder → runner) optimized for pnpm workspaces.
+
+### Key Learnings
+
+1. **Public folder location:** In standalone builds, the `public` folder must be copied to the same directory as `server.js` (e.g., `./packages/portal/public`), not the app root.
+
+2. **Static files location:** Similarly, `.next/static` must be at `./packages/portal/.next/static`.
+
+3. **Monorepo tracing:** Set `outputFileTracingRoot` to include workspace package imports in the standalone build.
+
+### Configure Docker Authentication
+
+Before first deployment, authenticate Docker with Artifact Registry:
+
+```bash
+gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
+```
+
+### Deployment Commands
+
+```bash
+# Preview changes
+pnpm infra:preview
+
+# Deploy (builds image, pushes to registry, updates Cloud Run)
+pnpm infra:up
+
+# View outputs (including URL)
+pnpm pulumi stack output
+```
+
+### Viewing Logs
+
+```bash
+# Stream logs
+gcloud run services logs read portal-staging --region=europe-west2 --tail=50
+
+# Or via Cloud Console
+# https://console.cloud.google.com/run/detail/europe-west2/portal-staging/logs
+```
+
+---
+
+## 8. Common Commands
 
 ### Root-Level Commands (Recommended)
 
 Run from monorepo root using npm scripts:
 
 ```bash
-# Preview changes
+# Preview changes (uses currently selected stack)
 pnpm infra:preview
 
-# Deploy infrastructure
+# Deploy infrastructure (uses currently selected stack)
 pnpm infra:up
 
-# Destroy infrastructure
-pnpm infra:destroy
+# Stack-specific commands (recommended for CI/CD)
+pnpm infra:preview:staging   # Preview staging
+pnpm infra:up:staging        # Deploy staging
+pnpm infra:destroy:staging   # Destroy staging
+
+pnpm infra:preview:prod      # Preview production
+pnpm infra:up:prod           # Deploy production
+pnpm infra:destroy:prod      # Destroy production
 
 # Any pulumi command
 pnpm pulumi <command>
@@ -384,7 +445,7 @@ gcloud run services logs read SERVICE_NAME
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 ### Common Issues
 
@@ -445,7 +506,7 @@ pnpm pulumi stack --show-urns
 
 ---
 
-## 9. CI/CD Integration
+## 10. CI/CD Integration
 
 ### GitHub Actions Setup (Future)
 
