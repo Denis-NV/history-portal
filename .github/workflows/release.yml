@@ -86,7 +86,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          cd infra && pnpm install
+          cd infra && pnpm install --ignore-workspace
 
       # Authenticate to GCP using Workload Identity Federation
       # This is more secure than using service account JSON keys
