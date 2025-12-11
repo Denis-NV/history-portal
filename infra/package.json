@@ -1,13 +1,18 @@
 {
-    "name": "history-portal",
-    "main": "index.ts",
-    "devDependencies": {
-        "@types/node": "^18",
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "@pulumi/docker": "^4.10.0",
-        "@pulumi/gcp": "^9.0.0",
-        "@pulumi/pulumi": "^3.113.0"
-    }
+  "name": "history-portal",
+  "main": "index.ts",
+  "devDependencies": {
+    "@types/node": "^18",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@pulumi/docker": "^4.10.0",
+    "@pulumi/gcp": "^9.0.0",
+    "@pulumi/pulumi": "^3.113.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "protobufjs"
+    ]
+  }
 }
