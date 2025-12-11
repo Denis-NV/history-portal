@@ -2,5 +2,6 @@ packages:
   - packages/*
 
 onlyBuiltDependencies:
+  - protobufjs
   - sharp
   - unrs-resolver

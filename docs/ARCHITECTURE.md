@@ -2,7 +2,7 @@
 
 > **Purpose:** This document captures all architectural decisions, technology choices, and implementation plans for a personal full-stack TypeScript web application hosted on GCP. It serves as context for AI assistants and future reference.
 
-**Last Updated:** December 3, 2025  
+**Last Updated:** December 11, 2025  
 **Project Status:** Planning / Phase 1
 
 ---
@@ -10,20 +10,24 @@
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Technology Stack](#2-technology-stack)
-3. [Architecture Diagram](#3-architecture-diagram)
-4. [Infrastructure as Code (Pulumi)](#4-infrastructure-as-code-pulumi)
-5. [Local Development](#5-local-development)
-6. [Database Strategy (Neon)](#6-database-strategy-neon)
-7. [Authentication (Better Auth)](#7-authentication-better-auth)
-8. [LLM Integration (Vertex AI)](#8-llm-integration-vertex-ai)
-9. [Real-time Features](#9-real-time-features)
-10. [Phased Rollout Plan](#10-phased-rollout-plan)
-11. [Project Structure](#11-project-structure)
+2. [Monorepo Structure](#2-monorepo-structure)
+3. [Technology Stack](#3-technology-stack)
+4. [Architecture Diagram](#4-architecture-diagram)
+5. [Infrastructure as Code (Pulumi)](#5-infrastructure-as-code-pulumi)
+6. [Local Development](#6-local-development)
+7. [Database Strategy (Neon)](#7-database-strategy-neon)
+8. [Authentication (Better Auth)](#8-authentication-better-auth)
+9. [LLM Integration (Vertex AI)](#9-llm-integration-vertex-ai)
+10. [Real-time Features](#10-real-time-features)
+11. [Phased Rollout Plan](#11-phased-rollout-plan)
 12. [Environment Configuration](#12-environment-configuration)
 13. [Deployment Strategy](#13-deployment-strategy)
 14. [Cost Optimization](#14-cost-optimization)
 15. [Future Considerations](#15-future-considerations)
+
+**Related Documents:**
+
+- [INFRASTRUCTURE.md](./INFRASTRUCTURE.md) — Detailed Pulumi & GCP setup guide
 
 ---
 
@@ -54,15 +58,142 @@ A personal, non-profit web application with the following core features:
 
 ---
 
-## 2. Technology Stack
+## 2. Monorepo Structure
+
+This project uses a **pnpm workspace monorepo** with **Turborepo** for task orchestration.
+
+### Why Monorepo?
+
+- **Shared code** — Common utilities and types across packages
+- **Atomic changes** — Single PR can update multiple packages
+- **Consistent tooling** — Unified linting, testing, and build processes
+- **Simplified dependency management** — Single lockfile, hoisted dependencies
+
+### Directory Structure
+
+```
+history-portal/
+├── .github/                    # GitHub Actions workflows
+├── docs/                       # Project documentation
+│   ├── ARCHITECTURE.md         # This file
+│   └── INFRASTRUCTURE.md       # Pulumi & GCP setup guide
+├── infra/                      # Pulumi infrastructure (NOT a workspace package)
+│   ├── Pulumi.yaml             # Pulumi project config
+│   ├── Pulumi.staging.yaml     # Staging stack config
+│   ├── Pulumi.prod.yaml        # Production stack config (future)
+│   ├── index.ts                # Main entry point
+│   ├── package.json            # Infra-specific dependencies
+│   └── tsconfig.json
+├── packages/                   # pnpm workspace packages
+│   ├── db/                     # Database schema & migrations (Drizzle)
+│   ├── portal/                 # Next.js web application
+│   │   ├── src/
+│   │   │   └── app/            # App Router
+│   │   ├── package.json
+│   │   └── next.config.ts
+│   └── utils/                  # Shared utilities
+├── package.json                # Root package.json with workspace scripts
+├── pnpm-workspace.yaml         # Workspace package definitions
+├── pnpm-lock.yaml              # Single lockfile for all packages
+└── turbo.json                  # Turborepo task configuration
+```
+
+### Key Configuration Files
+
+#### Root package.json
+
+```json
+{
+  "name": "history-portal",
+  "scripts": {
+    "dev:portal": "turbo -F portal dev",
+    "check-types": "turbo check-types",
+    "pulumi": "pulumi -C infra",
+    "infra:preview": "pulumi -C infra preview",
+    "infra:up": "pulumi -C infra up",
+    "infra:destroy": "pulumi -C infra destroy"
+  },
+  "devDependencies": {
+    "@pulumi/pulumi": "^3",
+    "turbo": "^2.6.3"
+  },
+  "packageManager": "pnpm@10.25.0"
+}
+```
+
+#### pnpm-workspace.yaml
+
+```yaml
+packages:
+  - packages/*
+
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+```
+
+#### turbo.json
+
+```json
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "persistent": true,
+      "cache": false
+    }
+  }
+}
+```
+
+### Why `infra/` is NOT a Workspace Package
+
+The `infra/` folder is at the root level but not included in `pnpm-workspace.yaml` because:
+
+1. **Different lifecycle** — Pulumi has its own CLI, not pnpm/Turbo tasks
+2. **Separate dependencies** — Infra needs `@pulumi/gcp`, apps don't
+3. **No exports** — Infrastructure code doesn't export modules for other packages
+4. **Industry convention** — Most monorepos place infra at root level
+
+### Common Commands
+
+```bash
+# Development
+pnpm dev:portal              # Start Next.js dev server
+pnpm check-types             # Type-check all packages
+
+# Infrastructure (run from root)
+pnpm pulumi stack ls         # List Pulumi stacks
+pnpm infra:preview           # Preview infrastructure changes
+pnpm infra:up                # Deploy infrastructure
+
+# Package management
+pnpm add <pkg> -F portal     # Add dependency to portal package
+pnpm add <pkg> -w            # Add dependency to root workspace
+```
+
+---
+
+## 3. Technology Stack
 
 ### Summary Table
 
 | Layer                | Technology                   | Version | Purpose                                 |
 | -------------------- | ---------------------------- | ------- | --------------------------------------- |
-| **IaC**              | Pulumi                       | Latest  | Infrastructure as Code (TypeScript)     |
+| **Monorepo**         | pnpm workspaces              | 10.x    | Package management & workspaces         |
+| **Build System**     | Turborepo                    | 2.x     | Task orchestration & caching            |
+| **IaC**              | Pulumi                       | 3.x     | Infrastructure as Code (TypeScript)     |
 | **Compute**          | Cloud Run                    | -       | Serverless container hosting            |
-| **Framework**        | Next.js                      | 15.x    | Full-stack React framework (App Router) |
+| **Framework**        | Next.js                      | 16.x    | Full-stack React framework (App Router) |
 | **Auth**             | Better Auth                  | Latest  | Authentication library                  |
 | **Database**         | Neon                         | -       | Serverless PostgreSQL                   |
 | **ORM**              | Drizzle                      | Latest  | TypeScript-first ORM                    |
@@ -120,7 +251,7 @@ A personal, non-profit web application with the following core features:
 
 ---
 
-## 3. Architecture Diagram
+## 4. Architecture Diagram
 
 ### Production Architecture
 
@@ -235,7 +366,7 @@ A personal, non-profit web application with the following core features:
 
 ---
 
-## 4. Infrastructure as Code (Pulumi)
+## 5. Infrastructure as Code (Pulumi)
 
 ### Project Structure
 
@@ -384,7 +515,7 @@ pulumi destroy --stack test-$CI_RUN_ID --yes
 
 ---
 
-## 5. Local Development
+## 6. Local Development
 
 ### Docker Compose Configuration
 
@@ -480,7 +611,7 @@ NEXT_PUBLIC_FIREBASE_DATABASE_URL=
 
 ---
 
-## 6. Database Strategy (Neon)
+## 7. Database Strategy (Neon)
 
 ### Schema Management with Drizzle
 
@@ -580,7 +711,7 @@ async function deleteTestBranch(runId: string) {
 
 ---
 
-## 7. Authentication (Better Auth)
+## 8. Authentication (Better Auth)
 
 ### Configuration
 
@@ -673,7 +804,7 @@ export async function getDbWithRLS() {
 
 ---
 
-## 8. LLM Integration (Vertex AI)
+## 9. LLM Integration (Vertex AI)
 
 ### Client Configuration
 
@@ -826,7 +957,7 @@ export function useSummarize() {
 
 ---
 
-## 9. Real-time Features
+## 10. Real-time Features
 
 ### Phase 3: Firebase Realtime Database
 
@@ -1011,7 +1142,7 @@ function broadcastToRoom(roomId: string, message: any) {
 
 ---
 
-## 10. Phased Rollout Plan
+## 11. Phased Rollout Plan
 
 ### Phase 1: Foundation ✅ (Current)
 
@@ -1096,71 +1227,6 @@ Cloud Run (Next.js) ──► Neon PostgreSQL
 - Background jobs (Cloud Tasks)
 - Full-text search (Typesense or Algolia)
 - Analytics (BigQuery)
-
----
-
-## 11. Project Structure
-
-```
-my-nextjs-app/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                 # Lint, test, type-check
-│       └── deploy.yml             # Deploy to Cloud Run
-├── infra/                         # Pulumi infrastructure
-│   ├── Pulumi.yaml
-│   ├── Pulumi.dev.yaml
-│   ├── Pulumi.staging.yaml
-│   ├── Pulumi.prod.yaml
-│   ├── index.ts
-│   ├── cloudrun.ts
-│   ├── database.ts
-│   └── package.json
-├── src/
-│   ├── app/                       # Next.js App Router
-│   │   ├── (auth)/               # Auth-required routes
-│   │   │   ├── dashboard/
-│   │   │   └── layout.tsx
-│   │   ├── (public)/             # Public routes
-│   │   │   ├── login/
-│   │   │   └── signup/
-│   │   ├── api/
-│   │   │   ├── auth/[...all]/    # Better Auth
-│   │   │   ├── summarize/        # LLM endpoint
-│   │   │   └── health/           # Health check
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── components/
-│   │   ├── ui/                   # Reusable UI components
-│   │   └── features/             # Feature-specific components
-│   ├── db/
-│   │   ├── index.ts              # Drizzle client
-│   │   ├── schema.ts             # Database schema
-│   │   └── migrations/           # Drizzle migrations
-│   ├── hooks/
-│   │   ├── use-summarize.ts
-│   │   └── use-chat.ts           # Phase 3
-│   ├── lib/
-│   │   ├── auth.ts               # Better Auth server
-│   │   ├── auth-client.ts        # Better Auth client
-│   │   ├── db-with-rls.ts        # RLS helper
-│   │   ├── vertex-ai.ts          # Vertex AI client
-│   │   └── firebase.ts           # Phase 3
-│   └── types/
-│       └── index.ts
-├── scripts/
-│   ├── create-test-branch.ts     # CI helper
-│   └── init-db.sql               # Docker init
-├── docker-compose.yml
-├── Dockerfile
-├── .env.example
-├── .env.local                    # Git-ignored
-├── drizzle.config.ts
-├── next.config.ts
-├── package.json
-├── tsconfig.json
-└── README.md
-```
 
 ---
 
