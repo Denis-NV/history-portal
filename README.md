@@ -64,6 +64,7 @@ history-portal/
 
 - [Architecture](docs/ARCHITECTURE.md) — Technical decisions, tech stack, and project structure
 - [Infrastructure](docs/INFRASTRUCTURE.md) — Pulumi & GCP setup guide
+- [CI/CD](docs/CI-CD.md) — GitHub Actions workflows and setup
 
 ## License
 

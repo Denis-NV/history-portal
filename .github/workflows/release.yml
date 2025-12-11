@@ -1,0 +1,115 @@
+# Release workflow - deploys to staging on merge to main
+#
+# Strategy for change detection:
+# - Uses path filters for now (./packages/portal/**)
+# - When you add shared packages (utils, db), add their paths here
+# - Turborepo's dependency graph ensures correct build order
+#
+# Future considerations:
+# - For db migrations: run migrations BEFORE deploying new portal code
+# - Consider adding a "migrate" job that runs between verify and deploy
+# - Example: verify → migrate → deploy (with proper rollback strategy)
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Trigger on portal app changes
+      - "packages/portal/**"
+      # Trigger on shared packages (add more as you create them)
+      # - "packages/utils/**"
+      # - "packages/db/**"
+      # Trigger on infra changes (deploys even if app code unchanged)
+      - "infra/**"
+      # Trigger on root config changes that affect builds
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "turbo.json"
+
+  # Allow manual trigger for debugging or force-deploy
+  workflow_dispatch:
+
+# Prevent concurrent deployments to same environment
+concurrency:
+  group: release-staging
+  cancel-in-progress: false # Don't cancel in-progress deploys
+
+env:
+  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+jobs:
+  # Run verification first (reuses verify.yml)
+  verify:
+    name: Verify
+    uses: ./.github/workflows/verify.yml
+
+  # Deploy to staging after verification passes
+  deploy:
+    name: Deploy to Staging
+    needs: verify
+    runs-on: ubuntu-latest
+
+    # Required for GCP Workload Identity Federation (recommended over service account keys)
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Read GCP region from Pulumi config (single source of truth)
+      - name: Get GCP Region
+        run: |
+          GCP_REGION=$(grep 'gcp:region:' infra/Pulumi.staging.yaml | awk '{print $2}')
+          echo "GCP_REGION=$GCP_REGION" >> $GITHUB_ENV
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Authenticate to GCP using Workload Identity Federation
+      # This is more secure than using service account JSON keys
+      # See: https://cloud.google.com/iam/docs/workload-identity-federation
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # Configure Docker to push to Artifact Registry
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
+
+      # Install Pulumi dependencies in infra folder
+      - name: Install Pulumi dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./infra
+
+      # Deploy using Pulumi
+      # The infra/index.ts builds the Docker image and deploys to Cloud Run
+      - name: Deploy to staging
+        run: pnpm infra:up:staging --yes
+
+      # Output the deployed URL
+      - name: Get deployment URL
+        run: pnpm pulumi stack output serviceUrl --stack staging

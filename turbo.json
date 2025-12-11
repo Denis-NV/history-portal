@@ -8,6 +8,9 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"],

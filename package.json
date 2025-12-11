@@ -4,6 +4,7 @@
   "scripts": {
     "dev:portal": "turbo -F portal dev",
     "check-types": "turbo check-types",
+    "lint": "turbo lint",
     "pulumi": "pulumi -C infra",
     "infra:preview:staging": "pulumi -C infra preview --stack staging",
     "infra:up:staging": "pulumi -C infra up --stack staging",

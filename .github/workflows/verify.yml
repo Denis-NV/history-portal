@@ -1,0 +1,55 @@
+# Verify workflow - runs linting and tests
+# Triggered on PRs and reusable by other workflows
+#
+# This workflow is designed to be:
+# 1. Required in branch protection (blocks PRs if failing)
+# 2. Called by release.yml before deploying
+
+name: Verify
+
+on:
+  # Trigger on pull requests to main
+  pull_request:
+    branches: [main]
+
+  # Allow other workflows to call this one
+  workflow_call:
+
+jobs:
+  verify:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # Version is read from packageManager field in package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Turborepo automatically caches task outputs
+      # See: https://turbo.build/repo/docs/crafting-your-repository/caching
+      - name: Run linting
+        run: pnpm turbo lint
+
+      # TODO: Add test target when tests are set up
+      # - name: Run tests
+      #   run: pnpm turbo test
