@@ -84,7 +84,9 @@ jobs:
             turbo-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm install --frozen-lockfile
+          cd infra && pnpm install
 
       # Authenticate to GCP using Workload Identity Federation
       # This is more secure than using service account JSON keys
@@ -99,11 +101,6 @@ jobs:
       # Configure Docker to push to Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
-
-      # Install Pulumi dependencies in infra folder
-      - name: Install Pulumi dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: ./infra
 
       # Deploy using Pulumi
       # The infra/index.ts builds the Docker image and deploys to Cloud Run
