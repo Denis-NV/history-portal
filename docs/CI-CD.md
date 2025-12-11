@@ -167,15 +167,18 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
-# Required for Pulumi to get access tokens for Docker authentication
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountTokenCreator"
-
 # Allow GitHub Actions to impersonate the service account
 gcloud iam service-accounts add-iam-policy-binding \
   "github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --project="${PROJECT_ID}" \
   --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-actions/attribute.repository/${GITHUB_REPO}"
+
+# Required for Pulumi to get access tokens for Docker authentication
+gcloud iam service-accounts add-iam-policy-binding \
+  "github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --project="${PROJECT_ID}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-actions/attribute.repository/${GITHUB_REPO}"
 ```
 
