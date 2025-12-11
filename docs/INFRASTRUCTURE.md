@@ -361,11 +361,11 @@ gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
 ### Deployment Commands
 
 ```bash
-# Preview changes
-pnpm infra:preview
+# Preview changes (specify stack explicitly)
+pnpm infra:preview:staging   # or :prod
 
 # Deploy (builds image, pushes to registry, updates Cloud Run)
-pnpm infra:up
+pnpm infra:up:staging        # or :prod
 
 # View outputs (including URL)
 pnpm pulumi stack output
@@ -390,13 +390,7 @@ gcloud run services logs read portal-staging --region=europe-west2 --tail=50
 Run from monorepo root using npm scripts:
 
 ```bash
-# Preview changes (uses currently selected stack)
-pnpm infra:preview
-
-# Deploy infrastructure (uses currently selected stack)
-pnpm infra:up
-
-# Stack-specific commands (recommended for CI/CD)
+# Stack-specific commands (explicit stack selection)
 pnpm infra:preview:staging   # Preview staging
 pnpm infra:up:staging        # Deploy staging
 pnpm infra:destroy:staging   # Destroy staging

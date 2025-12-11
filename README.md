@@ -39,10 +39,10 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 ### Common Commands
 
 ```bash
-pnpm dev:portal       # Start Next.js dev server
-pnpm check-types      # Type-check all packages
-pnpm infra:preview    # Preview infrastructure changes
-pnpm infra:up         # Deploy infrastructure
+pnpm dev:portal            # Start Next.js dev server
+pnpm check-types           # Type-check all packages
+pnpm infra:up:staging      # Deploy to staging
+pnpm infra:up:prod         # Deploy to production
 ```
 
 ## Project Structure

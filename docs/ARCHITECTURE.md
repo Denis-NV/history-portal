@@ -173,8 +173,8 @@ pnpm check-types             # Type-check all packages
 
 # Infrastructure (run from root)
 pnpm pulumi stack ls         # List Pulumi stacks
-pnpm infra:preview           # Preview infrastructure changes
-pnpm infra:up                # Deploy infrastructure
+pnpm infra:up:staging        # Deploy to staging
+pnpm infra:up:prod           # Deploy to production
 
 # Package management
 pnpm add <pkg> -F portal     # Add dependency to portal package
@@ -1341,7 +1341,7 @@ on:
 
 env:
   GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: europe-west2  # London
+  GCP_REGION: europe-west2 # London
   SERVICE_NAME: myapp
 
 jobs:
