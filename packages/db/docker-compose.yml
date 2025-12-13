@@ -1,0 +1,36 @@
+# Local PostgreSQL development environment with Neon HTTP Proxy
+# This setup allows @neondatabase/serverless driver to work with local PostgreSQL
+# See: https://neon.com/guides/local-development-with-neon
+
+services:
+  postgres:
+    image: postgres:17
+    command: "-d 1"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=history_portal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neon HTTP Proxy - enables @neondatabase/serverless driver to work locally
+  # https://github.com/TimoWilhelm/local-neon-http-proxy
+  neon-proxy:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+    environment:
+      - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/history_portal
+    ports:
+      - "4444:4444"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  db_data:
