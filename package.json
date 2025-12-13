@@ -2,7 +2,7 @@
   "name": "history-portal",
   "version": "0.1.0",
   "scripts": {
-    "dev:portal": "turbo -F portal dev",
+    "dev:portal": "turbo -F @history-portal/portal dev",
     "check-types": "turbo check-types",
     "lint": "turbo lint",
     "db:up": "pnpm -F @history-portal/db docker:up",

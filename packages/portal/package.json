@@ -10,6 +10,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@history-portal/db": "workspace:*",
+    "drizzle-orm": "^0.38.3",
     "next": "16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1"
