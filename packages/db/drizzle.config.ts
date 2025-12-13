@@ -1,10 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 
-// Default to local development database
-// For cloud, set DATABASE_URL environment variable
-const connectionString =
-  process.env.DATABASE_URL ??
-  'postgres://postgres:postgres@db.localtest.me:5432/history_portal';
+import { connectionString } from './src/config';
 
 export default defineConfig({
   dialect: 'postgresql',
