@@ -2,8 +2,8 @@
 
 > **Purpose:** This document captures all architectural decisions, technology choices, and implementation plans for a personal full-stack TypeScript web application hosted on GCP. It serves as context for AI assistants and future reference.
 
-**Last Updated:** December 11, 2025  
-**Project Status:** Planning / Phase 1
+**Last Updated:** December 15, 2025  
+**Project Status:** Phase 1 In Progress (Database ✅)
 
 ---
 
@@ -83,15 +83,27 @@ history-portal/
 │   ├── Pulumi.prod.yaml        # Production stack config (future)
 │   ├── index.ts                # Main entry point
 │   ├── package.json            # Infra-specific dependencies
+│   ├── sdks/neon/              # Generated Neon SDK (terraform-provider)
 │   └── tsconfig.json
 ├── packages/                   # pnpm workspace packages
-│   ├── db/                     # Database schema & migrations (Drizzle)
+│   ├── db/                     # Database package
+│   │   ├── docker-compose.yml  # Local PostgreSQL + Neon proxy
+│   │   ├── drizzle.config.ts   # Drizzle Kit configuration
+│   │   ├── package.json
+│   │   └── src/
+│   │       ├── index.ts        # Re-exports (client, schema, config)
+│   │       ├── client.ts       # Drizzle clients (HTTP + WebSocket)
+│   │       ├── config.ts       # Connection string configuration
+│   │       └── schema/
+│   │           └── index.ts    # Database schema (Drizzle ORM)
 │   ├── portal/                 # Next.js web application
 │   │   ├── src/
 │   │   │   └── app/            # App Router
+│   │   │       └── api/health/db/  # Database health endpoint
+│   │   ├── Dockerfile          # Multi-stage build (includes db package)
 │   │   ├── package.json
 │   │   └── next.config.ts
-│   └── utils/                  # Shared utilities
+│   └── utils/                  # Shared utilities (future)
 ├── package.json                # Root package.json with workspace scripts
 ├── pnpm-workspace.yaml         # Workspace package definitions
 ├── pnpm-lock.yaml              # Single lockfile for all packages
@@ -100,60 +112,11 @@ history-portal/
 
 ### Key Configuration Files
 
-#### Root package.json
+See the actual configuration files for current values:
 
-```json
-{
-  "name": "history-portal",
-  "scripts": {
-    "dev:portal": "turbo -F portal dev",
-    "check-types": "turbo check-types",
-    "pulumi": "pulumi -C infra",
-    "infra:preview": "pulumi -C infra preview",
-    "infra:up": "pulumi -C infra up",
-    "infra:destroy": "pulumi -C infra destroy"
-  },
-  "devDependencies": {
-    "@pulumi/pulumi": "^3",
-    "turbo": "^2.6.3"
-  },
-  "packageManager": "pnpm@10.25.0"
-}
-```
-
-#### pnpm-workspace.yaml
-
-```yaml
-packages:
-  - packages/*
-
-onlyBuiltDependencies:
-  - sharp
-  - unrs-resolver
-```
-
-#### turbo.json
-
-```json
-{
-  "$schema": "https://turborepo.com/schema.json",
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"]
-    },
-    "check-types": {
-      "dependsOn": ["^check-types"]
-    },
-    "dev": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"],
-      "persistent": true,
-      "cache": false
-    }
-  }
-}
-```
+- [package.json](../package.json) — Root workspace scripts and dependencies
+- [pnpm-workspace.yaml](../pnpm-workspace.yaml) — Workspace package definitions
+- [turbo.json](../turbo.json) — Turborepo task configuration
 
 ### Why `infra/` is NOT a Workspace Package
 
@@ -171,14 +134,24 @@ The `infra/` folder is at the root level but not included in `pnpm-workspace.yam
 pnpm dev:portal              # Start Next.js dev server
 pnpm check-types             # Type-check all packages
 
+# Database (local development)
+pnpm db:up                   # Start local PostgreSQL + Neon proxy
+pnpm db:down                 # Stop local database
+pnpm db:logs                 # View database logs
+pnpm db:studio               # Open Drizzle Studio
+pnpm db:generate             # Generate migration from schema changes
+pnpm db:migrate              # Apply migrations
+pnpm db:push                 # Push schema directly (dev only)
+
 # Infrastructure (run from root)
 pnpm pulumi stack ls         # List Pulumi stacks
 pnpm infra:up:staging        # Deploy to staging
 pnpm infra:up:prod           # Deploy to production
 
 # Package management
-pnpm add <pkg> -F portal     # Add dependency to portal package
-pnpm add <pkg> -w            # Add dependency to root workspace
+pnpm add <pkg> -F @history-portal/portal  # Add to portal
+pnpm add <pkg> -F @history-portal/db      # Add to db
+pnpm add <pkg> -w                         # Add to root workspace
 ```
 
 ---
@@ -257,14 +230,14 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Production Architecture                       │
+│                        Production Architecture                      │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
+│                                                                     │
 │   ┌────────────────────────────────────────────────────────────┐    │
-│   │                    Cloud Run Container                      │    │
+│   │                    Cloud Run Container                     │    │
 │   │  ┌──────────────────────────────────────────────────────┐  │    │
-│   │  │                   Next.js 15 App                      │  │    │
-│   │  │                                                       │  │    │
+│   │  │                   Next.js 15 App                     │  │    │
+│   │  │                                                      │  │    │
 │   │  │  ┌─────────────────┐  ┌────────────────────────────┐ │  │    │
 │   │  │  │   App Router    │  │      API Routes            │ │  │    │
 │   │  │  │   (React)       │  │  ┌──────────────────────┐  │ │  │    │
@@ -278,15 +251,15 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 │   │  │  │                 │  │  │ (Business Logic)     │  │ │  │    │
 │   │  │  └─────────────────┘  │  └──────────────────────┘  │ │  │    │
 │   │  │                       └────────────────────────────┘ │  │    │
-│   │  │                                                       │  │    │
+│   │  │                                                      │  │    │
 │   │  │  ┌─────────────────────────────────────────────────┐ │  │    │
 │   │  │  │  Custom Server (Phase 3 - Optional)             │ │  │    │
 │   │  │  │  WebSocket support via ws library               │ │  │    │
 │   │  │  └─────────────────────────────────────────────────┘ │  │    │
 │   │  └──────────────────────────────────────────────────────┘  │    │
 │   └────────────────────────────────────────────────────────────┘    │
-│              │                    │                    │             │
-│              ▼                    ▼                    ▼             │
+│              │                    │                    │            │
+│              ▼                    ▼                    ▼            │
 │   ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐    │
 │   │ Neon PostgreSQL  │ │   Vertex AI      │ │ Firebase Realtime│    │
 │   │                  │ │   (Gemini)       │ │ (Phase 3)        │    │
@@ -295,7 +268,7 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 │   │ • staging        │ │ for summarization│ │ subscriptions    │    │
 │   │ • test-* (CI/CD) │ │                  │ │                  │    │
 │   └──────────────────┘ └──────────────────┘ └──────────────────┘    │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -303,12 +276,12 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     Local Development Setup                          │
+│                     Local Development Setup                         │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
+│                                                                     │
 │   ┌─────────────────────────────────────────────────────────────┐   │
-│   │                    Developer Machine                         │   │
-│   │                                                              │   │
+│   │                    Developer Machine                        │   │
+│   │                                                             │   │
 │   │   ┌─────────────────────┐   ┌─────────────────────────────┐ │   │
 │   │   │   Docker Compose    │   │      pnpm dev               │ │   │
 │   │   │                     │   │                             │ │   │
@@ -322,15 +295,15 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 │   │   │   │  Emulator   │◄──┼───│   (Phase 3)                 │ │   │
 │   │   │   │  :9000      │   │   │                             │ │   │
 │   │   │   └─────────────┘   │   └─────────────────────────────┘ │   │
-│   │   │                     │                                    │   │
-│   │   └─────────────────────┘                                    │   │
-│   │                                                              │   │
-│   │   Environment Variables:                                     │   │
-│   │   DATABASE_URL=postgresql://postgres:postgres@localhost:5432 │   │
-│   │   VERTEX_AI_* (use real GCP credentials or mock)             │   │
-│   │                                                              │   │
+│   │   │                     │                                   │   │
+│   │   └─────────────────────┘                                   │   │
+│   │                                                             │   │
+│   │   Environment Variables:                                    │   │
+│   │   DATABASE_URL=postgresql://postgres:postgres@localhost:5432│   │
+│   │   VERTEX_AI_* (use real GCP credentials or mock)            │   │
+│   │                                                             │   │
 │   └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -338,29 +311,37 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    Environment Strategy                              │
+│                    Environment Strategy                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   Pulumi Stacks              Neon Branches                          │
-│   ─────────────              ─────────────                          │
-│                                                                      │
-│   ┌─────────────┐           ┌─────────────┐                         │
-│   │    dev      │──────────►│   dev       │  (developer's cloud)    │
-│   └─────────────┘           └─────────────┘                         │
-│                                    │                                 │
-│   ┌─────────────┐           ┌──────┴──────┐                         │
-│   │   staging   │──────────►│   staging   │  (branched from main)   │
-│   └─────────────┘           └─────────────┘                         │
-│                                    │                                 │
-│   ┌─────────────┐           ┌──────┴──────┐                         │
-│   │    prod     │──────────►│    main     │  (production)           │
-│   └─────────────┘           └─────────────┘                         │
-│                                    │                                 │
-│   CI/CD Pipeline            ┌──────┴──────┐                         │
-│   ──────────────            │  test-*     │  (ephemeral, auto-delete)│
-│   Creates ephemeral         └─────────────┘                         │
-│   branches for tests                                                 │
-│                                                                      │
+│                                                                     │
+│   Pulumi Stacks              Neon Projects (Isolated)               │
+│   ─────────────              ────────────────────────               │
+│                                                                     │
+│   (local)                   ┌─────────────────┐                     │
+│   Docker Compose  ────────► │ PostgreSQL 17 │  (local Docker)       │
+│   pnpm db:up                │ + Neon Proxy  │                       │
+│                             └─────────────────┘                     │
+│                                                                     │
+│   ┌─────────────┐           ┌─────────────────────────────┐         │
+│   │   staging   │──────────►│ history-portal-staging      │ ✅      │
+│   └─────────────┘           │ (Neon Project - isolated)   │         │
+│                             │                             │         │
+│                             │  ┌───────────────────────┐  │         │
+│   CI/CD Pipeline            │  │ test-* branches       │  │         │
+│   (ephemeral)  ───────────► │  │ (ephemeral, from      │  │         │
+│                             │  │  staging branch)      │  │         │
+│                             │  └───────────────────────┘  │         │
+│                             └─────────────────────────────┘         │
+│                                                                     │
+│   ┌─────────────┐           ┌─────────────────────────────┐         │
+│   │    prod     │──────────►│ history-portal-prod         │ 🔜      │
+│   └─────────────┘           │ (Neon Project - isolated)   │         │
+│                             └─────────────────────────────┘         │
+│                                                                     │
+│   Note: Staging and Prod use SEPARATE Neon projects for complete    │
+│   isolation. CI/CD uses ephemeral BRANCHES within the staging       │
+│   project for cost efficiency.                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -373,17 +354,16 @@ pnpm add <pkg> -w            # Add dependency to root workspace
 ```
 infra/
 ├── Pulumi.yaml                 # Project configuration
-├── Pulumi.dev.yaml             # Dev stack config
-├── Pulumi.staging.yaml         # Staging stack config
-├── Pulumi.prod.yaml            # Production stack config
-├── index.ts                    # Main entry point
-├── config.ts                   # Configuration helpers
-├── cloudrun.ts                 # Cloud Run service
-├── database.ts                 # Neon database & branches
-├── secrets.ts                  # Secret Manager
-├── iam.ts                      # IAM roles & service accounts
-└── outputs.ts                  # Stack outputs
+├── Pulumi.staging.yaml         # Staging stack config (Neon + GCP)
+├── Pulumi.prod.yaml            # Production stack config (future)
+├── index.ts                    # Main infrastructure code
+├── package.json                # Infra dependencies
+├── tsconfig.json
+└── sdks/
+    └── neon/                   # Generated Neon SDK (terraform-provider bridge)
 ```
+
+> **Note:** The Neon SDK is generated locally using `pulumi package gen-sdk` with the terraform-provider bridge. See the README in `infra/sdks/neon/` for details.
 
 ### Key Pulumi Resources
 
@@ -519,104 +499,103 @@ pulumi destroy --stack test-$CI_RUN_ID --yes
 
 ### Docker Compose Configuration
 
-```yaml
-# docker-compose.yml
-version: "3.8"
+The database package includes a Docker Compose setup for local development that mirrors the Neon serverless driver behavior.
 
-services:
-  db:
-    image: postgres:15-alpine
-    container_name: myapp-postgres
-    environment:
-      POSTGRES_DB: app
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+See: [packages/db/docker-compose.yml](../packages/db/docker-compose.yml)
 
-  # Firebase emulator for Phase 3 (real-time chat)
-  firebase:
-    image: andreysenov/firebase-tools
-    container_name: myapp-firebase
-    command: firebase emulators:start --project demo-myapp --only database
-    ports:
-      - "4000:4000" # Emulator UI
-      - "9000:9000" # Realtime Database
-    volumes:
-      - ./firebase.json:/home/node/firebase.json
-    profiles:
-      - realtime # Only start with: docker compose --profile realtime up
+Key components:
+- **PostgreSQL 17** — Local database on port 5432
+- **Neon HTTP Proxy** — Translates HTTP requests to PostgreSQL wire protocol on port 4444
 
-volumes:
-  postgres_data:
-```
+> **Why Neon HTTP Proxy?** The `@neondatabase/serverless` driver uses HTTP to communicate with Neon. The proxy translates these HTTP requests to standard PostgreSQL wire protocol, allowing the same driver code to work locally and in production.
 
 ### Development Workflow
 
 ```bash
-# Start local services
-docker compose up -d
+# Start local database (PostgreSQL 17 + Neon HTTP proxy)
+pnpm db:up
 
 # Run Next.js development server
-pnpm dev
+pnpm dev:portal
 
-# Run with Firebase emulator (Phase 3)
-docker compose --profile realtime up -d
+# Open Drizzle Studio (database browser)
+pnpm db:studio
 
 # Run database migrations
 pnpm db:migrate
 
-# Generate Drizzle types
+# Generate Drizzle migrations from schema changes
 pnpm db:generate
 
-# Run tests with ephemeral Neon branch
-pnpm test:integration
+# Stop local database
+pnpm db:down
 ```
+
+### Database Client Configuration
+
+The `@history-portal/db` package exports pre-configured Drizzle clients.
+
+See: [packages/db/src/client.ts](../packages/db/src/client.ts)
+
+Key exports:
+- **`db`** — HTTP client, best for serverless (API routes, server components)
+- **`dbPool`** — WebSocket client, best for long-running processes and transactions
+
+The client auto-detects local vs cloud environment and configures the Neon driver accordingly.
 
 ### Environment Files
 
 ```bash
 # .env.local (local development - DO NOT COMMIT)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app
-BETTER_AUTH_SECRET=local-dev-secret-change-in-production
-BETTER_AUTH_URL=http://localhost:3000
+# Not needed for local dev! The db package has sensible defaults.
+# Only set DATABASE_URL if you want to connect to a remote Neon database.
 
-# Vertex AI (use real credentials for LLM features)
-GCP_PROJECT_ID=your-project-id
-GCP_LOCATION=us-central1
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-
-# Firebase (Phase 3 - local emulator)
-NEXT_PUBLIC_FIREBASE_DATABASE_URL=http://localhost:9000?ns=demo-myapp
+# DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
 ```
 
-```bash
-# .env.example (template for developers)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app
-BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=http://localhost:3000
-GCP_PROJECT_ID=
-GCP_LOCATION=us-central1
-GOOGLE_APPLICATION_CREDENTIALS=
-NEXT_PUBLIC_FIREBASE_DATABASE_URL=
+**Default Local Connection:**
+
 ```
+postgres://postgres:postgres@db.localtest.me:5432/history_portal
+```
+
+> **Note:** We use `db.localtest.me` instead of `localhost` because it resolves to `127.0.0.1` but allows the Neon HTTP proxy hostname matching to work correctly.
 
 ---
 
 ## 7. Database Strategy (Neon)
 
+### Current Implementation
+
+The database layer is fully implemented with:
+
+| Component                | Status | Description                      |
+| ------------------------ | ------ | -------------------------------- |
+| Local Docker             | ✅     | PostgreSQL 17 + Neon HTTP Proxy  |
+| Drizzle ORM              | ✅     | v0.38.3 with snake_case naming   |
+| @neondatabase/serverless | ✅     | v0.10.4 (works local & cloud)    |
+| Neon Staging             | ✅     | `history-portal-staging` project |
+| Health Endpoint          | ✅     | `/api/health/db`                 |
+
+### Package Structure
+
+See: [packages/db/](../packages/db/)
+
+| File | Purpose |
+|------|--------|
+| [docker-compose.yml](../packages/db/docker-compose.yml) | Local PostgreSQL + Neon proxy |
+| [drizzle.config.ts](../packages/db/drizzle.config.ts) | Drizzle Kit configuration |
+| [src/index.ts](../packages/db/src/index.ts) | Re-exports: db, dbPool, schema, config |
+| [src/client.ts](../packages/db/src/client.ts) | Drizzle clients (HTTP + WebSocket) |
+| [src/config.ts](../packages/db/src/config.ts) | Connection string + isLocal detection |
+| [src/schema/index.ts](../packages/db/src/schema/index.ts) | Database schema (empty, awaiting BetterAuth) |
+
 ### Schema Management with Drizzle
 
+> **Note:** The schema file is currently empty, awaiting BetterAuth integration. Below is an example of what it will contain:
+
 ```typescript
-// src/db/schema.ts
+// packages/db/src/schema/index.ts (planned)
 import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 
 // Better Auth required tables
@@ -661,8 +640,10 @@ export const summaries = pgTable("summaries", {
 
 ### Row-Level Security (RLS)
 
+> **Note:** RLS is a planned feature. Below is an example migration:
+
 ```sql
--- migrations/0002_enable_rls.sql
+-- migrations/0002_enable_rls.sql (planned)
 
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -683,8 +664,10 @@ CREATE POLICY summaries_insert_own ON summaries
 
 ### Integration Testing with Ephemeral Branches
 
+> **Note:** Ephemeral branch testing is a planned CI/CD feature. Below is an example implementation:
+
 ```typescript
-// scripts/create-test-branch.ts
+// scripts/create-test-branch.ts (planned)
 import { Neon } from "@neondatabase/serverless";
 
 async function createTestBranch(runId: string) {
@@ -713,10 +696,12 @@ async function deleteTestBranch(runId: string) {
 
 ## 8. Authentication (Better Auth)
 
+> **Note:** Better Auth integration is planned for Phase 1. Below are example implementations.
+
 ### Configuration
 
 ```typescript
-// src/lib/auth.ts
+// src/lib/auth.ts (planned)
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
@@ -766,7 +751,7 @@ export const { GET, POST } = toNextJsHandler(auth);
 ### Client-Side Hook
 
 ```typescript
-// src/lib/auth-client.ts
+// src/lib/auth-client.ts (planned)
 import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
@@ -779,7 +764,7 @@ export const { useSession, signIn, signOut, signUp } = authClient;
 ### Setting RLS Context
 
 ```typescript
-// src/lib/db-with-rls.ts
+// src/lib/db-with-rls.ts (planned)
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -806,10 +791,12 @@ export async function getDbWithRLS() {
 
 ## 9. LLM Integration (Vertex AI)
 
+> **Note:** Vertex AI integration is planned for Phase 2. Below are example implementations.
+
 ### Client Configuration
 
 ```typescript
-// src/lib/vertex-ai.ts
+// src/lib/vertex-ai.ts (planned)
 import { VertexAI } from "@google-cloud/vertexai";
 
 let vertexAI: VertexAI | null = null;
@@ -838,7 +825,7 @@ export function getGeminiModel() {
 ### SSE Streaming Endpoint
 
 ```typescript
-// src/app/api/summarize/route.ts
+// src/app/api/summarize/route.ts (planned)
 import { getGeminiModel } from "@/lib/vertex-ai";
 import { getDbWithRLS } from "@/lib/db-with-rls";
 import { summaries } from "@/db/schema";
@@ -898,7 +885,7 @@ export async function POST(req: Request) {
 ### Client-Side SSE Consumer
 
 ```typescript
-// src/hooks/use-summarize.ts
+// src/hooks/use-summarize.ts (planned)
 import { useState, useCallback } from "react";
 
 export function useSummarize() {
@@ -959,12 +946,14 @@ export function useSummarize() {
 
 ## 10. Real-time Features
 
+> **Note:** Real-time features are planned for Phase 3. Below are example implementations.
+
 ### Phase 3: Firebase Realtime Database
 
 #### Configuration
 
 ```typescript
-// src/lib/firebase.ts
+// src/lib/firebase.ts (planned)
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
@@ -984,7 +973,7 @@ export const realtimeDb = getDatabase(app);
 #### Chat Hook
 
 ```typescript
-// src/hooks/use-chat.ts
+// src/hooks/use-chat.ts (planned)
 import { useEffect, useState, useCallback } from "react";
 import {
   ref,
@@ -1055,7 +1044,7 @@ export function useChat(roomId: string) {
 ### Alternative: Custom WebSocket (If Needed Later)
 
 ```typescript
-// server.ts - Custom server with WebSocket support
+// server.ts (planned - custom server with WebSocket support)
 import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
@@ -1144,25 +1133,36 @@ function broadcastToRoom(roomId: string, message: any) {
 
 ## 11. Phased Rollout Plan
 
-### Phase 1: Foundation ✅ (Current)
+### Phase 1: Foundation 🟡 (In Progress)
 
 **Goal:** Basic app with authentication and database
 
 **Deliverables:**
 
-- [ ] Next.js 15 project setup (App Router)
+- [x] Next.js 16 project setup (App Router)
 - [ ] Better Auth integration
-- [ ] Drizzle ORM + Neon connection
-- [ ] Docker Compose for local development
-- [ ] Pulumi infrastructure (Cloud Run + Neon branches)
+- [x] Drizzle ORM + Neon connection
+- [x] Docker Compose for local development
+- [x] Pulumi infrastructure (Cloud Run + Neon)
 - [ ] Basic CI/CD with GitHub Actions
-- [ ] Staging and production environments
+- [x] Staging environment deployed
+- [ ] Production environment
 
 **Infrastructure:**
 
 ```
-Cloud Run (Next.js) ──► Neon PostgreSQL
+Cloud Run (Next.js) ──► Neon PostgreSQL (staging)
+        │
+        └── DATABASE_URL injected via Pulumi
 ```
+
+**Completed:**
+
+- Local development with PostgreSQL 17 + Neon HTTP Proxy
+- `@history-portal/db` package with Drizzle ORM
+- Portal integration with `@history-portal/db`
+- Neon staging project via Pulumi (terraform-provider bridge)
+- Health check endpoint: `/api/health/db`
 
 **Estimated Time:** 1-2 weeks
 
@@ -1246,8 +1246,10 @@ Cloud Run (Next.js) ──► Neon PostgreSQL
 
 ### Secret Management with Pulumi
 
+> **Note:** Secret Manager integration is planned. Currently, secrets are passed directly as environment variables via Pulumi.
+
 ```typescript
-// infra/secrets.ts
+// infra/secrets.ts (planned)
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
 
@@ -1284,114 +1286,23 @@ export function createSecrets(neonConnectionString: pulumi.Output<string>) {
 
 ### Dockerfile
 
-```dockerfile
-# Dockerfile
-FROM node:20-alpine AS base
+See: [packages/portal/Dockerfile](../packages/portal/Dockerfile)
 
-# Install dependencies only when needed
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
+The Dockerfile uses a multi-stage build optimized for pnpm workspaces:
 
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+1. **deps** — Install dependencies with frozen lockfile
+2. **builder** — Build the Next.js app (includes `@history-portal/db`)
+3. **runner** — Production image with standalone output
 
-# Build the application
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+Key features:
 
-ENV NEXT_TELEMETRY_DISABLED 1
-
-RUN corepack enable pnpm && pnpm build
-
-# Production image
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
-```
+- Copies workspace packages (`packages/db`) for monorepo builds
+- Uses `output: "standalone"` for minimal image size
+- Runs as non-root user for security
 
 ### GitHub Actions CI/CD
 
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main, staging]
-
-env:
-  GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: europe-west2 # London
-  SERVICE_NAME: myapp
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run tests
-        run: pnpm test
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
-
-      - name: Build and push image
-        run: |
-          docker build -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/myapp/${{ env.SERVICE_NAME }}:${{ github.sha }} .
-          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/myapp/${{ env.SERVICE_NAME }}:${{ github.sha }}
-
-      - name: Deploy with Pulumi
-        uses: pulumi/actions@v4
-        with:
-          command: up
-          stack-name: ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }}
-          work-dir: ./infra
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-```
+> **Note:** CI/CD is planned. See [CI-CD.md](./CI-CD.md) for setup instructions when implemented.
 
 ---
 
@@ -1470,33 +1381,34 @@ When the app grows, consider:
 
 ```bash
 # Local Development
-docker compose up -d              # Start local services
-pnpm dev                          # Start Next.js dev server
-pnpm db:migrate                   # Run migrations
-pnpm db:generate                  # Generate Drizzle types
+pnpm db:up                        # Start PostgreSQL + Neon proxy
+pnpm db:down                      # Stop local database
+pnpm dev:portal                   # Start Next.js dev server
 pnpm db:studio                    # Open Drizzle Studio
+pnpm db:generate                  # Generate migration from schema
+pnpm db:migrate                   # Apply migrations
+pnpm db:push                      # Push schema directly (dev)
 
-# Pulumi Infrastructure
-cd infra
-pulumi stack select staging           # Switch to staging stack
-pulumi up                         # Deploy infrastructure
-pulumi preview                    # Preview changes
-pulumi stack output               # View outputs
-pulumi destroy                    # Tear down infrastructure
-
-# Docker
-docker build -t myapp .           # Build image
-docker run -p 3000:3000 myapp     # Run locally
+# Pulumi Infrastructure (from root)
+pnpm infra:preview:staging        # Preview staging changes
+pnpm infra:up:staging             # Deploy to staging
+pnpm infra:destroy:staging        # Destroy staging
+pnpm pulumi stack output          # View outputs
+pnpm pulumi config                # View configuration
 
 # GCP
 gcloud auth login                 # Authenticate
+gcloud auth application-default login  # Set app credentials
 gcloud config set project <id>    # Set project
 gcloud run services list          # List Cloud Run services
-gcloud run services logs read myapp  # View logs
+gcloud run services logs read portal-staging  # View logs
+
+# Health Checks
+curl https://portal-staging-7qac6lyjqa-nw.a.run.app/api/health/db
 ```
 
 ---
 
 **Document Maintainer:** AI Assistant  
-**Last Updated:** December 3, 2025  
-**Version:** 1.0.0
+**Last Updated:** December 15, 2025  
+**Version:** 1.1.0

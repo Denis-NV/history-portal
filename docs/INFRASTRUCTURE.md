@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides step-by-step instructions for setting up and managing the infrastructure for the history-portal project. It serves as both a reference for AI assistants and a reproducible guide for recreating the setup on other projects.
 
-**Last Updated:** December 11, 2025  
-**Project Status:** Staging Deployed ✅
+**Last Updated:** December 15, 2025  
+**Project Status:** Staging Deployed ✅ | Database Connected ✅
 
 ---
 
@@ -46,12 +46,14 @@ Local Development          Cloud Infrastructure
 
 ### Environment Strategy
 
-| Environment | Pulumi Stack | Neon Branch | Purpose                     |
-| ----------- | ------------ | ----------- | --------------------------- |
-| Local       | (none)       | (Docker)    | Development with hot reload |
-| Staging     | `staging`    | `staging`   | Pre-production testing      |
-| Production  | `prod`       | `main`      | Live application            |
-| CI/CD       | (ephemeral)  | `test-*`    | Automated testing           |
+| Environment | Pulumi Stack | Database                   | Purpose                     |
+| ----------- | ------------ | -------------------------- | --------------------------- |
+| Local       | (none)       | Docker PostgreSQL 17       | Development with hot reload |
+| Staging     | `staging`    | Neon Project (staging)     | Pre-production testing      |
+| Production  | `prod`       | Neon Project (prod)        | Live application            |
+| CI/CD       | (ephemeral)  | Neon Branch (from staging) | Automated testing           |
+
+> **Note:** Staging and Production use separate Neon projects for complete isolation. CI/CD tests use ephemeral branches from the staging project.
 
 ---
 
@@ -206,46 +208,14 @@ pnpm install
 
 ### Configuration Files
 
-#### Pulumi.yaml
+See the actual configuration files for current values:
 
-```yaml
-name: history-portal
-description: A minimal Google Cloud TypeScript Pulumi program
-runtime:
-  name: nodejs
-  options:
-    packagemanager: pnpm
-config:
-  pulumi:tags:
-    value:
-      pulumi:template: gcp-typescript
-```
-
-#### Pulumi.staging.yaml
-
-```yaml
-config:
-  gcp:project: history-portal # Your GCP Project ID
-  gcp:region: europe-west2 # London region for UK-based projects
-```
-
-#### package.json
-
-```json
-{
-  "name": "history-portal",
-  "main": "index.ts",
-  "devDependencies": {
-    "@types/node": "^18",
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@pulumi/docker": "^4.10.0",
-    "@pulumi/gcp": "^9.0.0",
-    "@pulumi/pulumi": "^3.113.0"
-  }
-}
-```
+| File                                                      | Purpose                                       |
+| --------------------------------------------------------- | --------------------------------------------- |
+| [infra/Pulumi.yaml](../infra/Pulumi.yaml)                 | Project configuration                         |
+| [infra/Pulumi.staging.yaml](../infra/Pulumi.staging.yaml) | Staging stack config (includes Neon settings) |
+| [infra/package.json](../infra/package.json)               | Infra dependencies                            |
+| [infra/index.ts](../infra/index.ts)                       | Main infrastructure code                      |
 
 ---
 
@@ -296,30 +266,44 @@ pnpm pulumi config
 
 ### Current Resources (Staging)
 
-| Resource          | Name             | Status      | Purpose                    |
-| ----------------- | ---------------- | ----------- | -------------------------- |
-| Artifact Registry | `portal`         | ✅ Deployed | Docker image storage       |
-| Cloud Run Service | `portal-staging` | ✅ Deployed | Next.js container hosting  |
-| IAM Policy        | `allUsers`       | ✅ Deployed | Public access to Cloud Run |
+| Resource          | Name                     | Status      | Purpose                    |
+| ----------------- | ------------------------ | ----------- | -------------------------- |
+| Artifact Registry | `portal`                 | ✅ Deployed | Docker image storage       |
+| Cloud Run Service | `portal-staging`         | ✅ Deployed | Next.js container hosting  |
+| IAM Policy        | `allUsers`               | ✅ Deployed | Public access to Cloud Run |
+| Neon Project      | `history-portal-staging` | ✅ Deployed | Serverless PostgreSQL 17   |
 
-**Live URL:** https://portal-staging-7qac6lyjqa-ew.a.run.app
+**Live URL:** https://portal-staging-7qac6lyjqa-nw.a.run.app  
+**Health Check:** https://portal-staging-7qac6lyjqa-nw.a.run.app/api/health/db
 
 **Infrastructure Code:** [infra/index.ts](../infra/index.ts)
 
+### Neon Database Configuration
+
+The Neon provider is set up using a locally-generated SDK via Pulumi's terraform-provider bridge:
+
+```
+infra/
+├── sdks/
+│   └── neon/           # Generated Neon SDK (terraform-provider bridge)
+└── index.ts            # Neon.Project resource configuration
+```
+
+**Neon Stack Configuration** (`Pulumi.staging.yaml`):
+
+```yaml
+config:
+  app:neonOrgId: org-quiet-wind-18934135
+  app:neonRegion: aws-eu-west-2 # London (closest to GCP europe-west2)
+  neon:apiKey:
+    secure: <encrypted>
+```
+
 ### Planned Resources
 
-| Resource       | Provider       | Purpose               | Status     |
-| -------------- | -------------- | --------------------- | ---------- |
-| Secret Manager | `@pulumi/gcp`  | Secrets storage       | 🔜 Planned |
-| Neon Database  | `@pulumi/neon` | PostgreSQL database   | 🔜 Planned |
-| Neon Branches  | `@pulumi/neon` | Staging/test branches | 🔜 Planned |
-
-### Adding Neon Provider (Future)
-
-```bash
-cd infra
-pnpm add @pulumi/neon
-```
+| Resource       | Provider      | Purpose         | Status     |
+| -------------- | ------------- | --------------- | ---------- |
+| Secret Manager | `@pulumi/gcp` | Secrets storage | 🔜 Planned |
 
 ---
 
@@ -510,13 +494,13 @@ See [CI-CD.md](./CI-CD.md) for complete GitHub Actions setup instructions.
 
 ### File Locations
 
-| File                        | Purpose                 |
-| --------------------------- | ----------------------- |
-| `infra/Pulumi.yaml`         | Project configuration   |
-| `infra/Pulumi.staging.yaml` | Staging stack config    |
-| `infra/Pulumi.prod.yaml`    | Production stack config |
-| `infra/index.ts`            | Infrastructure code     |
-| `infra/package.json`        | Infra dependencies      |
+| File                                                      | Purpose                 |
+| --------------------------------------------------------- | ----------------------- |
+| [infra/Pulumi.yaml](../infra/Pulumi.yaml)                 | Project configuration   |
+| [infra/Pulumi.staging.yaml](../infra/Pulumi.staging.yaml) | Staging stack config    |
+| [infra/Pulumi.prod.yaml](../infra/Pulumi.prod.yaml)       | Production stack config |
+| [infra/index.ts](../infra/index.ts)                       | Infrastructure code     |
+| [infra/package.json](../infra/package.json)               | Infra dependencies      |
 
 ### Environment Variables
 
@@ -538,5 +522,5 @@ PULUMI_ACCESS_TOKEN=pul-xxxxxxxx
 ---
 
 **Document Maintainer:** AI Assistant  
-**Last Updated:** December 11, 2025  
-**Version:** 1.0.0
+**Last Updated:** December 15, 2025  
+**Version:** 1.1.0

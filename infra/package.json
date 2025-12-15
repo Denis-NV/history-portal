@@ -8,11 +8,13 @@
   "dependencies": {
     "@pulumi/docker": "^4.10.0",
     "@pulumi/gcp": "^9.0.0",
+    "@pulumi/neon": "file:sdks/neon",
     "@pulumi/pulumi": "^3.113.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "protobufjs"
+      "protobufjs",
+      "@pulumi/neon"
     ]
   }
 }
