@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import * as docker from "@pulumi/docker";
+import * as neon from "@pulumi/neon";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -16,6 +17,13 @@ const project = gcpConfig.require("project");
 // UK users should use europe-west2 (London)
 // See all regions: https://cloud.google.com/compute/docs/regions-zones
 const region = gcpConfig.get("region") || "europe-west2";
+
+// Neon configuration
+// Neon uses AWS regions, not GCP regions
+// See: https://neon.tech/docs/introduction/regions
+const neonConfig = new pulumi.Config("neon");
+const neonRegion = neonConfig.get("region") || "aws-eu-west-2"; // London
+const neonOrgId = neonConfig.require("orgId");
 
 // Returns the current stack name (e.g., "staging" or "prod")
 // Used to namespace resources: portal-staging, portal-prod
@@ -67,6 +75,22 @@ const image = new docker.Image(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Neon Database - Serverless PostgreSQL
+// Console: https://console.neon.tech
+// ─────────────────────────────────────────────────────────────────────────────
+const neonProject = new neon.Project("history-portal", {
+  name: `history-portal-${stack}`,
+  regionId: neonRegion,
+  pgVersion: 17,
+  orgId: neonOrgId,
+  historyRetentionSeconds: 86400, // 24 hours (default)
+  defaultEndpointSettings: {
+    autoscalingLimitMinCu: 0.25, // Minimum compute (cost-effective)
+    autoscalingLimitMaxCu: 1, // Maximum compute
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Cloud Run Service
 // Serverless container platform - pay only for what you use
 // Console: https://console.cloud.google.com/run?project=history-portal
@@ -86,7 +110,13 @@ const service = new gcp.cloudrun.Service("portal", {
               cpu: "1",
             },
           },
-          envs: [{ name: "NODE_ENV", value: "production" }],
+          envs: [
+            { name: "NODE_ENV", value: "production" },
+            {
+              name: "DATABASE_URL",
+              value: neonProject.connectionUri,
+            },
+          ],
         },
       ],
       containerConcurrency: 80,
@@ -140,3 +170,7 @@ const invoker = new gcp.cloudrun.IamMember("portal-invoker", {
 export const serviceUrl = service.statuses[0].url;
 export const serviceName = service.name;
 export const imageUrl = image.imageName;
+
+// Neon outputs (connection string is secret)
+export const neonProjectId = neonProject.id;
+export const databaseConnectionUri = pulumi.secret(neonProject.connectionUri);
