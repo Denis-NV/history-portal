@@ -21,9 +21,9 @@ const region = gcpConfig.get("region") || "europe-west2";
 // Neon configuration
 // Neon uses AWS regions, not GCP regions
 // See: https://neon.tech/docs/introduction/regions
-const neonConfig = new pulumi.Config("neon");
-const neonRegion = neonConfig.get("region") || "aws-eu-west-2"; // London
-const neonOrgId = neonConfig.require("orgId");
+const appConfig = new pulumi.Config("app");
+const neonRegion = appConfig.get("neonRegion") || "aws-eu-west-2"; // London
+const neonOrgId = appConfig.require("neonOrgId");
 
 // Returns the current stack name (e.g., "staging" or "prod")
 // Used to namespace resources: portal-staging, portal-prod
@@ -83,7 +83,7 @@ const neonProject = new neon.Project("history-portal", {
   regionId: neonRegion,
   pgVersion: 17,
   orgId: neonOrgId,
-  historyRetentionSeconds: 86400, // 24 hours (default)
+  historyRetentionSeconds: 21600, // 6 hours (free tier max)
   defaultEndpointSettings: {
     autoscalingLimitMinCu: 0.25, // Minimum compute (cost-effective)
     autoscalingLimitMaxCu: 1, // Maximum compute

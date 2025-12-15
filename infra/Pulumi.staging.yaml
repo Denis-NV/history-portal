@@ -1,7 +1,7 @@
 config:
   gcp:project: history-portal
   gcp:region: europe-west2 # London - see https://cloud.google.com/compute/docs/regions-zones
-  neon:orgId: org-quiet-wind-18934135
-  neon:region: aws-eu-west-2 # London - see https://neon.tech/docs/introduction/regions
+  app:neonOrgId: org-quiet-wind-18934135
+  app:neonRegion: aws-eu-west-2 # London - see https://neon.tech/docs/introduction/regions
   neon:apiKey:
     secure: AAABAMXg6eunMZqLuSvdYGf9pYdAAYf9kXB9y8JDb+tSNlmLM5GtgFQCrc10drZyBgRLTMu/cS2+H/9iCti74+/4663hZK0k1+2gW9zFbQlShNdAHqzkcUokMNbVX8qds91DOqU=

@@ -17,6 +17,7 @@ WORKDIR /app
 # Copy workspace config files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/portal/package.json ./packages/portal/
+COPY packages/db/package.json ./packages/db/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -30,12 +31,14 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/portal/node_modules ./packages/portal/node_modules
+COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 
-# Copy source files
+# Copy source files for all workspace packages the portal depends on
+COPY packages/db ./packages/db
 COPY packages/portal ./packages/portal
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 
-# Build the application
+# Build the portal app
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app/packages/portal
 RUN pnpm build
