@@ -26,7 +26,6 @@
     "better-auth-ui": "^3.2.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.41.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.561.0",
     "next": "16.0.8",
