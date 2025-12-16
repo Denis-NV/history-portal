@@ -61,13 +61,13 @@ const pool = new Pool({ connectionString });
  * Drizzle HTTP client - for serverless/edge environments
  * Use this in API routes and server components
  */
-export const db = drizzleHttp(sql, { schema, casing: 'snake_case' });
+export const db = drizzleHttp(sql, { schema });
 
 /**
  * Drizzle WebSocket client - for long-running processes
  * Use this for scripts, migrations, or high-frequency operations
  */
-export const dbPool = drizzleWs(pool, { schema, casing: 'snake_case' });
+export const dbPool = drizzleWs(pool, { schema });
 
 // Export types
 export type DbClient = typeof db;

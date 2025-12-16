@@ -23,5 +23,15 @@
     "@pulumi/pulumi": "^3",
     "turbo": "^2.6.3"
   },
-  "packageManager": "pnpm@10.25.0"
+  "packageManager": "pnpm@10.25.0",
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@instantdb/react",
+        "@triplit/client",
+        "@triplit/react",
+        "@marsidev/react-turnstile"
+      ]
+    }
+  }
 }

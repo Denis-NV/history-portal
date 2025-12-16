@@ -2,7 +2,9 @@
 // Database Schema
 // ─────────────────────────────────────────────────────────────────────────────
 // This file exports all database table schemas.
-// BetterAuth will add its required tables here during auth setup.
+//
+// Tables:
+// - auth.ts: Better Auth tables (user, session, account, verification)
 //
 // Example table definition:
 //
@@ -17,6 +19,5 @@
 // });
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Schema exports will be added here
-// For now, export empty object to satisfy Drizzle config
-export {};
+// Auth schema (Better Auth)
+export * from "./auth";
