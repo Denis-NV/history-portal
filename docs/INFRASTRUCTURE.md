@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides step-by-step instructions for setting up and managing the infrastructure for the history-portal project. It serves as both a reference for AI assistants and a reproducible guide for recreating the setup on other projects.
 
-**Last Updated:** December 15, 2025  
-**Project Status:** Staging Deployed ✅ | Database Connected ✅
+**Last Updated:** December 19, 2025  
+**Project Status:** Staging Deployed ✅ | Database Connected ✅ | Auth Working ✅
 
 ---
 
@@ -262,14 +262,24 @@ pnpm pulumi config set --secret resendApiKey "re_xxx"
 # Set non-secret config
 pnpm pulumi config set emailFrom "noreply@yourdomain.com"
 
-# Set app URL (required for auth - set after first deploy or with custom domain)
+# Set app URL (required for auth email links)
+# After first deploy, get the URL from `pulumi stack output serviceUrl`
 pnpm pulumi config set appUrl "https://portal-staging-xxx.run.app"
 
 # View config
 pnpm pulumi config
 ```
 
-> **Note:** `appUrl` is used to set `BETTER_AUTH_URL` for the Cloud Run service. This is required for email verification links to work correctly.
+> **Note:** `appUrl` is used to set `BETTER_AUTH_URL` for email verification links. The Cloud Run URL hash (e.g., `7qac6lyjqa`) is stable across normal deployments but changes if you destroy and recreate the stack.
+
+> **First Deploy or Destroy/Recreate Workflow:**
+>
+> 1. Deploy without `appUrl` (or with placeholder) — deployment succeeds but email links won't work
+> 2. Get the new URL: `pnpm pulumi stack output serviceUrl`
+> 3. Update config: `pnpm pulumi config set appUrl "<new-url>"`
+> 4. Re-deploy: `pnpm infra:up:staging`
+>
+> Once you set up a custom domain, this is no longer needed.
 
 ---
 
@@ -533,5 +543,5 @@ PULUMI_ACCESS_TOKEN=pul-xxxxxxxx
 ---
 
 **Document Maintainer:** AI Assistant  
-**Last Updated:** December 15, 2025  
-**Version:** 1.1.0
+**Last Updated:** December 19, 2025  
+**Version:** 1.2.0
