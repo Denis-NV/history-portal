@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
+import { parse as parseSetCookie } from "set-cookie-parser";
 import {
   signUpSchema,
   signInSchema,
@@ -24,6 +25,65 @@ export type FormState = {
 
 // Alias for backwards compatibility
 export type SignUpState = FormState;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Handling
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Converts technical error messages to user-friendly ones.
+ * Logs the original error for debugging.
+ */
+function getUserFriendlyError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : String(err);
+
+  // Log for debugging (visible in server console)
+  console.error("[Auth Error]", message);
+
+  // Database connection errors
+  if (
+    message.includes("ECONNREFUSED") ||
+    message.includes("connection") ||
+    message.includes("Console request failed")
+  ) {
+    return "Unable to connect to the database. Please try again later.";
+  }
+
+  // User already exists
+  if (message.includes("already exists") || message.includes("duplicate")) {
+    return "An account with this email already exists.";
+  }
+
+  // Invalid credentials
+  if (
+    message.includes("Invalid") ||
+    message.includes("invalid") ||
+    message.includes("incorrect")
+  ) {
+    return "Invalid email or password.";
+  }
+
+  // Email not verified
+  if (
+    message.includes("not verified") ||
+    message.includes("Email not verified")
+  ) {
+    return "Please verify your email before signing in. Check your inbox for the verification link.";
+  }
+
+  // Rate limiting
+  if (message.includes("rate") || message.includes("too many")) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+
+  // Token errors
+  if (message.includes("token") || message.includes("expired")) {
+    return "This link has expired. Please request a new one.";
+  }
+
+  // Default fallback
+  return fallback;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sign Up Action
@@ -70,10 +130,11 @@ export async function signUpAction(
         "Account created! Please check your email to verify your account.",
     };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to create account";
     return {
-      error: message,
+      error: getUserFriendlyError(
+        err,
+        "Failed to create account. Please try again."
+      ),
       values: { name: result.data.name, email: result.data.email },
     };
   }
@@ -109,18 +170,43 @@ export async function signInAction(
         email: result.data.email,
         password: result.data.password,
       },
-      headers: await headers(),
+      asResponse: true,
     });
 
-    if (!response) {
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       return {
-        error: "Invalid email or password.",
+        error: getUserFriendlyError(
+          data?.message || "Invalid email or password.",
+          "Invalid email or password."
+        ),
         values: { email: result.data.email },
       };
     }
+
+    // Forward the session cookie from Better Auth response to the browser
+    const setCookieHeader = response.headers.get("set-cookie");
+    if (setCookieHeader) {
+      const cookieStore = await cookies();
+      const parsedCookies = parseSetCookie(setCookieHeader, {
+        decodeValues: false,
+      });
+
+      for (const cookie of parsedCookies) {
+        cookieStore.set(cookie.name, cookie.value, {
+          path: cookie.path,
+          httpOnly: cookie.httpOnly,
+          secure: cookie.secure,
+          sameSite: cookie.sameSite as "lax" | "strict" | "none" | undefined,
+          maxAge: cookie.maxAge,
+        });
+      }
+    }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to sign in";
-    return { error: message, values: { email: result.data.email } };
+    return {
+      error: getUserFriendlyError(err, "Failed to sign in. Please try again."),
+      values: { email: result.data.email },
+    };
   }
 
   // Redirect on success (must be outside try/catch)
@@ -228,10 +314,11 @@ export async function resetPasswordAction(
       success: "Password reset successfully! Redirecting to sign in...",
     };
   } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Failed to reset password. The link may have expired.";
-    return { error: message };
+    return {
+      error: getUserFriendlyError(
+        err,
+        "Failed to reset password. The link may have expired."
+      ),
+    };
   }
 }

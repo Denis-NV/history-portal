@@ -253,12 +253,23 @@ Set configuration values per stack:
 # Set for current stack
 pnpm pulumi config set gcp:region europe-west2
 
-# Set secret (encrypted)
-pnpm pulumi config set --secret betterAuthSecret "your-secret-value"
+# Set secrets (encrypted)
+pnpm pulumi config set --secret betterAuthSecret "$(openssl rand -base64 32)"
+pnpm pulumi config set --secret googleClientId "xxx.apps.googleusercontent.com"
+pnpm pulumi config set --secret googleClientSecret "GOCSPX-xxx"
+pnpm pulumi config set --secret resendApiKey "re_xxx"
+
+# Set non-secret config
+pnpm pulumi config set emailFrom "noreply@yourdomain.com"
+
+# Set app URL (required for auth - set after first deploy or with custom domain)
+pnpm pulumi config set appUrl "https://portal-staging-xxx.run.app"
 
 # View config
 pnpm pulumi config
 ```
+
+> **Note:** `appUrl` is used to set `BETTER_AUTH_URL` for the Cloud Run service. This is required for email verification links to work correctly.
 
 ---
 

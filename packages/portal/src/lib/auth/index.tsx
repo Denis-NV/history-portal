@@ -25,6 +25,13 @@ const resend = process.env.RESEND_API_KEY
 
 export const auth = betterAuth({
   // ─────────────────────────────────────────────────────────────────────────
+  // Base URL Configuration
+  // ─────────────────────────────────────────────────────────────────────────
+  // Better Auth auto-detects BETTER_AUTH_URL from env, but we set it explicitly
+  // to ensure email verification links work correctly in async contexts.
+  baseURL: process.env.BETTER_AUTH_URL,
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Database Configuration
   // ─────────────────────────────────────────────────────────────────────────
   database: drizzleAdapter(db, {

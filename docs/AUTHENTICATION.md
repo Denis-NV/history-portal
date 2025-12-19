@@ -334,17 +334,14 @@ CREATE POLICY "Users can delete own data" ON your_table
 | ---------------------- | ----------------------------------------- | ------------------------------------------------ |
 | `DATABASE_URL`         | Neon connection string                    | `postgresql://user:pass@host/db?sslmode=require` |
 | `BETTER_AUTH_SECRET`   | Secret for session signing (min 32 chars) | Generate with `openssl rand -base64 32`          |
-| `NEXT_PUBLIC_APP_URL`  | App base URL                              | `http://localhost:3000`                          |
+| `BETTER_AUTH_URL`      | Base URL for auth (email links, cookies)  | `http://localhost:3000`                          |
+| `NEXT_PUBLIC_APP_URL`  | App base URL (client-side)                | `http://localhost:3000`                          |
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    | `xxx.apps.googleusercontent.com`                 |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                | `GOCSPX-xxx`                                     |
 | `RESEND_API_KEY`       | Resend API key for emails                 | `re_xxx`                                         |
 | `EMAIL_FROM`           | Sender email address                      | `noreply@yourdomain.com`                         |
 
-### Optional
-
-| Variable          | Description                           | Default                       |
-| ----------------- | ------------------------------------- | ----------------------------- |
-| `BETTER_AUTH_URL` | Auth base URL (if different from app) | Same as `NEXT_PUBLIC_APP_URL` |
+> **Important:** `BETTER_AUTH_URL` must be set explicitly. Better Auth cannot auto-detect the URL in async contexts (e.g., when sending verification emails from Server Actions).
 
 ### Local Development
 
@@ -355,13 +352,14 @@ Create `packages/portal/.env.local`:
 ```bash
 # Auth
 BETTER_AUTH_SECRET="your-32-char-secret-here-for-local-dev"
+BETTER_AUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # Google OAuth (optional for local)
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-# Email (optional - emails will fail silently without this)
+# Email (optional - URLs logged to console without this)
 RESEND_API_KEY="re_your_resend_api_key"
 EMAIL_FROM="noreply@yourdomain.com"
 ```
@@ -382,7 +380,7 @@ pulumi -C infra config set --secret googleClientSecret "GOCSPX-xxx" --stack stag
 pulumi -C infra config set --secret resendApiKey "re_xxx" --stack staging
 
 # Non-secret config
-pulumi -C infra config set emailFrom "noreply@yourdomain.com" --stack staging
+pulumi -C infra config set emailFrom "onboarding@resend.dev" --stack staging
 
 # App URL (set after first deploy, or use custom domain)
 pulumi -C infra config set appUrl "https://portal-staging-xxx.run.app" --stack staging

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -22,10 +23,21 @@ import { AUTH_ROUTES, REDIRECT } from "@/const";
 const initialState: SignUpState = {};
 
 export function SignUpForm() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     signUpAction,
     initialState
   );
+
+  // Redirect to sign-in after successful sign-up
+  useEffect(() => {
+    if (state.success) {
+      const timeout = setTimeout(() => {
+        router.push(AUTH_ROUTES.SIGN_IN);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [state.success, router]);
 
   return (
     <Card className="w-full max-w-md">
@@ -43,6 +55,9 @@ export function SignUpForm() {
           {state.success && (
             <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-600">
               {state.success}
+              <p className="mt-1 text-xs text-green-600/80">
+                Redirecting to sign in...
+              </p>
             </div>
           )}
 

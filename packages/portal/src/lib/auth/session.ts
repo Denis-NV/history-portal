@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth } from "./index";
 
 /**
@@ -28,16 +29,24 @@ export async function getSession() {
 }
 
 /**
- * Get the current session or throw if not authenticated.
- * Use this in routes that should always have a session (after middleware protection).
+ * Require authentication to access a page.
+ * Redirects to sign-in if no session exists.
  *
- * @throws Error if no session exists
+ * @example
+ * ```tsx
+ * import { requireSession } from "@/lib/auth/session";
+ *
+ * export default async function ProtectedPage() {
+ *   const { user } = await requireSession();
+ *   return <div>Welcome, {user.name}</div>;
+ * }
+ * ```
  */
 export async function requireSession() {
   const session = await getSession();
 
   if (!session) {
-    throw new Error("Unauthorized: No session found");
+    redirect("/auth/sign-in");
   }
 
   return session;
