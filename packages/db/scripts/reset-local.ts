@@ -10,52 +10,48 @@
  * Usage: pnpm db:reset:local
  */
 
-import postgres from "postgres";
-import { execSync } from "node:child_process";
-import { userInfo } from "node:os";
+import { config } from "dotenv";
+import { resolve } from "node:path";
 
-import {
+// Load .env.local from portal package BEFORE importing config
+// (must be sync, before any dynamic imports)
+config({ path: resolve(import.meta.dirname, "../../portal/.env.local") });
+config({ path: resolve(import.meta.dirname, "../../portal/.env") });
+
+// Dynamic import to ensure env is loaded first
+const { default: postgres } = await import("postgres");
+const { execSync } = await import("node:child_process");
+const { userInfo } = await import("node:os");
+
+const {
   adminConnectionString,
   connectionString,
   isLocalDocker,
   isNeon,
   LOCAL_DATABASE,
-} from "../src/config";
+} = await import("../src/config");
 
 const username = userInfo().username;
 const DEV_BRANCH_NAME = `dev-${username}`;
-
-const neonctl = (args: string): string => {
-  const cmd = `pnpm exec neonctl ${args}`;
-  return execSync(cmd, { encoding: "utf-8" }).trim();
-};
 
 async function resetNeonBranch() {
   console.log("🌐 Detected Neon database connection");
   console.log(`🗑️  Resetting Neon branch '${DEV_BRANCH_NAME}'...`);
 
-  // Get project ID from Pulumi
-  let projectId: string;
+  // Drop and recreate schemas for a clean slate
+  // This ensures we rely on migrations, not copied data from main
+  console.log("🧹 Dropping all tables...");
+  const sql = postgres(connectionString);
   try {
-    projectId = execSync(
-      "pulumi -C ../../infra stack output neonProjectId --stack staging",
-      { encoding: "utf-8" }
-    ).trim();
-  } catch {
-    console.error("❌ Failed to get Neon project ID from Pulumi");
-    console.error("   Make sure the staging stack is deployed");
-    process.exit(1);
-  }
-
-  try {
-    neonctl(`branches reset ${DEV_BRANCH_NAME} --project-id ${projectId}`);
-    console.log("✅ Neon branch reset");
-  } catch {
-    console.error(`❌ Failed to reset branch '${DEV_BRANCH_NAME}'`);
-    console.error(
-      "   Make sure the branch exists. Run: pnpm db:setup:neon-dev"
-    );
-    process.exit(1);
+    // Drop drizzle schema (migration journal) so migrations re-run
+    await sql.unsafe(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
+    // Drop public schema (all tables)
+    await sql.unsafe(`DROP SCHEMA public CASCADE`);
+    await sql.unsafe(`CREATE SCHEMA public`);
+    await sql.unsafe(`GRANT ALL ON SCHEMA public TO PUBLIC`);
+    console.log("✅ Schema cleared");
+  } finally {
+    await sql.end();
   }
 }
 
