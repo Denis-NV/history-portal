@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuthUIProvider } from "better-auth-ui";
 
 import { authClient } from "@/lib/auth/client";
+import { REDIRECT } from "@/const";
 
 export function AuthProviders({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function AuthProviders({ children }: { children: ReactNode }) {
       social={{
         providers: ["google"],
       }}
-      redirectTo="/timeline"
+      redirectTo={REDIRECT.AFTER_SIGN_IN}
     >
       {children}
     </AuthUIProvider>
