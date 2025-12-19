@@ -87,7 +87,7 @@ history-portal/
 │   └── tsconfig.json
 ├── packages/                   # pnpm workspace packages
 │   ├── db/                     # Database package
-│   │   ├── docker-compose.yml  # Local PostgreSQL + Neon proxy
+│   │   ├── docker-compose.yml  # Local PostgreSQL
 │   │   ├── drizzle.config.ts   # Drizzle Kit configuration
 │   │   ├── package.json
 │   │   └── src/
@@ -318,8 +318,8 @@ pnpm add <pkg> -w                         # Add to root workspace
 │   ─────────────              ────────────────────────               │
 │                                                                     │
 │   (local)                   ┌─────────────────┐                     │
-│   Docker Compose  ────────► │ PostgreSQL 17 │  (local Docker)       │
-│   pnpm db:up                │ + Neon Proxy  │                       │
+│   Docker Compose  ────────► │ PostgreSQL 17   │  (local Docker)     │
+│   pnpm db:up                │                 │                     │
 │                             └─────────────────┘                     │
 │                                                                     │
 │   ┌─────────────┐           ┌─────────────────────────────┐         │
@@ -499,20 +499,20 @@ pulumi destroy --stack test-$CI_RUN_ID --yes
 
 ### Docker Compose Configuration
 
-The database package includes a Docker Compose setup for local development that mirrors the Neon serverless driver behavior.
+The database package includes a Docker Compose setup for local development.
 
 See: [packages/db/docker-compose.yml](../packages/db/docker-compose.yml)
 
 Key components:
-- **PostgreSQL 17** — Local database on port 5432
-- **Neon HTTP Proxy** — Translates HTTP requests to PostgreSQL wire protocol on port 4444
 
-> **Why Neon HTTP Proxy?** The `@neondatabase/serverless` driver uses HTTP to communicate with Neon. The proxy translates these HTTP requests to standard PostgreSQL wire protocol, allowing the same driver code to work locally and in production.
+- **PostgreSQL 17** — Local database on port 5432
+
+> **Note:** The Neon HTTP Proxy container is still in docker-compose.yml but is not used. Local development uses the standard `pg` driver for simplicity and reliability. The Neon serverless driver is only used in staging/production.
 
 ### Development Workflow
 
 ```bash
-# Start local database (PostgreSQL 17 + Neon HTTP proxy)
+# Start local database
 pnpm db:up
 
 # Run Next.js development server
@@ -538,10 +538,20 @@ The `@history-portal/db` package exports pre-configured Drizzle clients.
 See: [packages/db/src/client.ts](../packages/db/src/client.ts)
 
 Key exports:
-- **`db`** — HTTP client, best for serverless (API routes, server components)
-- **`dbPool`** — WebSocket client, best for long-running processes and transactions
 
-The client auto-detects local vs cloud environment and configures the Neon driver accordingly.
+- **`db`** — Primary database client
+- **`dbPool`** — Pooled client for transactions
+
+#### Driver Selection
+
+The client auto-detects the environment and uses the appropriate driver:
+
+| Environment            | Driver                     | Why                                              |
+| ---------------------- | -------------------------- | ------------------------------------------------ |
+| **Local**              | `pg` (node-postgres)       | Direct TCP connection, simpler and more reliable |
+| **Staging/Production** | `@neondatabase/serverless` | Optimized for serverless (HTTP + WebSocket)      |
+
+> **Trade-off:** Local development cannot use Neon database branching, but gains simplicity. For branch-based testing, use Neon's staging environment or CI integration with ephemeral branches.
 
 ### Environment Files
 
@@ -571,9 +581,10 @@ The database layer is fully implemented with:
 
 | Component                | Status | Description                      |
 | ------------------------ | ------ | -------------------------------- |
-| Local Docker             | ✅     | PostgreSQL 17 + Neon HTTP Proxy  |
+| Local Docker             | ✅     | PostgreSQL 17                    |
 | Drizzle ORM              | ✅     | v0.38.3 with snake_case naming   |
-| @neondatabase/serverless | ✅     | v0.10.4 (works local & cloud)    |
+| @neondatabase/serverless | ✅     | v0.10.4 (staging/prod only)      |
+| pg (node-postgres)       | ✅     | Local development driver         |
 | Neon Staging             | ✅     | `history-portal-staging` project |
 | Health Endpoint          | ✅     | `/api/health/db`                 |
 
@@ -581,13 +592,13 @@ The database layer is fully implemented with:
 
 See: [packages/db/](../packages/db/)
 
-| File | Purpose |
-|------|--------|
-| [docker-compose.yml](../packages/db/docker-compose.yml) | Local PostgreSQL + Neon proxy |
-| [drizzle.config.ts](../packages/db/drizzle.config.ts) | Drizzle Kit configuration |
-| [src/index.ts](../packages/db/src/index.ts) | Re-exports: db, dbPool, schema, config |
-| [src/client.ts](../packages/db/src/client.ts) | Drizzle clients (HTTP + WebSocket) |
-| [src/config.ts](../packages/db/src/config.ts) | Connection string + isLocal detection |
+| File                                                      | Purpose                                      |
+| --------------------------------------------------------- | -------------------------------------------- |
+| [docker-compose.yml](../packages/db/docker-compose.yml)   | Local PostgreSQL                             |
+| [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                    |
+| [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config       |
+| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (HTTP + WebSocket)           |
+| [src/config.ts](../packages/db/src/config.ts)             | Connection string + isLocal detection        |
 | [src/schema/index.ts](../packages/db/src/schema/index.ts) | Database schema (empty, awaiting BetterAuth) |
 
 ### Schema Management with Drizzle

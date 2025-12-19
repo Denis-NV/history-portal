@@ -15,18 +15,28 @@
     "docker:logs": "docker compose logs -f",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push",
-    "studio": "drizzle-kit studio",
+    "migrate:rls": "tsx scripts/migrate-rls.ts",
+    "migrate:all": "drizzle-kit migrate && tsx scripts/migrate-rls.ts",
+    "reset:local": "tsx scripts/reset-local.ts",
+    "reset:staging": "tsx scripts/reset-staging.ts",
+    "neon:auth": "neonctl auth",
+    "dev": "drizzle-kit studio",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
-    "drizzle-orm": "^0.38.3"
+    "@types/pg": "^8.16.0",
+    "better-auth": "^1.4.7",
+    "drizzle-orm": "^0.41.0",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/ws": "^8",
-    "drizzle-kit": "^0.30.1",
+    "drizzle-kit": "^0.31.8",
+    "neonctl": "^2.19.0",
+    "postgres": "^3.4.7",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "ws": "^8.18.0"
   }

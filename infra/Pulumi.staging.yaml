@@ -5,3 +5,13 @@ config:
   app:neonRegion: aws-eu-west-2 # London - see https://neon.tech/docs/introduction/regions
   neon:apiKey:
     secure: AAABAMXg6eunMZqLuSvdYGf9pYdAAYf9kXB9y8JDb+tSNlmLM5GtgFQCrc10drZyBgRLTMu/cS2+H/9iCti74+/4663hZK0k1+2gW9zFbQlShNdAHqzkcUokMNbVX8qds91DOqU=
+  history-portal:betterAuthSecret:
+    secure: AAABAEl/qrGNxRv3RembVKD4JVW5zAuOnElZquAEaDDxpZOASv4Jx8VvD0BesfGitd4tYNNSNAng7oxblRQDm0aQ+9eJK+9Qu8OvJw==
+  history-portal:appUrl: https://portal-staging-7qac6lyjqa-nw.a.run.app
+  history-portal:emailFrom: onboarding@resend.dev
+  history-portal:resendApiKey:
+    secure: AAABAEWLy1h4HCw8zdBoRdS4r039LGoIbj3drMQFGHKWseneMhQioVU9igGTuuACVZBwBf8H5E8TOTDKt/RLIn4g2zo=
+  history-portal:googleClientId:
+    secure: AAABAI7ZPx9I9VV6lC3fF90dEzj6YAahyAx4GvtsNyCZnFeqPffotiU8Cg==
+  history-portal:googleClientSecret:
+    secure: AAABAO+dZM10294/STS0w9VDJQvI+RCF9lU2LNl3C8NTYk9v7O1TBuojXQ==

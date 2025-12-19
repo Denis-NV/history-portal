@@ -2,7 +2,7 @@
 
 > **Purpose:** This document provides instructions for setting up GitHub Actions workflows for automated testing and deployment.
 
-**Last Updated:** December 11, 2025
+**Last Updated:** December 19, 2025
 
 ---
 
@@ -35,9 +35,21 @@
 │          │                                      │                    │
 │          ▼                                      ▼                    │
 │   ┌─────────────┐                        ┌─────────────┐            │
-│   │  Required   │                        │   Deploy    │            │
-│   │  to Merge   │                        │  (Staging)  │            │
-│   └─────────────┘                        └─────────────┘            │
+│   │  Required   │                        │  Migrate    │            │
+│   │  to Merge   │                        │  (Schema)   │            │
+│   └─────────────┘                        └──────┬──────┘            │
+│                                                 │                    │
+│                                                 ▼                    │
+│                                          ┌─────────────┐            │
+│                                          │   Deploy    │            │
+│                                          │  (Staging)  │            │
+│                                          └──────┬──────┘            │
+│                                                 │                    │
+│                                                 ▼ (on failure)       │
+│                                          ┌─────────────┐            │
+│                                          │  Rollback   │            │
+│                                          │  (PITR)     │            │
+│                                          └─────────────┘            │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -89,12 +101,19 @@
   - `package.json`, `pnpm-lock.yaml`, `turbo.json`
 - Manual trigger via `workflow_dispatch`
 
-**Steps:**
+**Jobs:**
 
-1. Run verify workflow (lint)
-2. Authenticate to GCP via Workload Identity Federation
-3. Configure Docker for Artifact Registry
-4. Deploy via `pnpm infra:up:staging`
+1. **Verify** - Run lint checks (reuses verify workflow)
+2. **Migrate** - Run database schema migrations and RLS policies
+3. **Deploy** - Build Docker image and deploy to Cloud Run via Pulumi
+4. **Rollback** (on deploy failure) - Restore database to pre-migration state using Neon PITR
+
+**Migration Strategy:**
+
+- Migrations run **before** deployment to ensure schema is ready
+- Uses Neon's Point-in-Time Recovery (PITR) for rollback capability
+- Pre-migration timestamp is recorded for potential rollback
+- If deployment fails, database is restored to pre-migration state
 
 ---
 
@@ -191,6 +210,10 @@ Go to your repo → Settings → Secrets and variables → Actions → New repos
 | `PULUMI_ACCESS_TOKEN`            | Your Pulumi access token                                                                         |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/providers/github` |
 | `GCP_SERVICE_ACCOUNT`            | `github-actions@history-portal.iam.gserviceaccount.com`                                          |
+| `NEON_API_KEY`                   | Neon API key for PITR rollback (create at [console.neon.tech](https://console.neon.tech))        |
+| `NEON_PROJECT_ID`                | Neon project ID (from Pulumi outputs: `patient-shadow-80448127` for staging)                     |
+
+> **Note:** `DATABASE_URL` is automatically retrieved from Pulumi stack outputs during the migration job. No need to set it as a secret.
 
 To get your project number:
 
@@ -225,44 +248,6 @@ When you add tests, update [verify.yml](../.github/workflows/verify.yml):
   run: pnpm turbo test
 ```
 
-### Database Migrations
-
-When you add the `db` package with Drizzle migrations, update [release.yml](../.github/workflows/release.yml):
-
-```yaml
-# Add between verify and deploy jobs:
-migrate:
-  name: Run Migrations
-  needs: verify
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: pnpm/action-setup@v4
-    - run: pnpm install --frozen-lockfile
-    - run: pnpm turbo db:migrate
-      env:
-        DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-
-deploy:
-  needs: [verify, migrate] # Deploy only after migrations succeed
-  # ... rest of deploy job
-```
-
-### Triggering on Shared Package Changes
-
-Update [release.yml](../.github/workflows/release.yml) paths when you add shared packages:
-
-```yaml
-paths:
-  - "packages/portal/**"
-  - "packages/utils/**" # Add when utils package is created
-  - "packages/db/**" # Add when db package is created
-  - "infra/**"
-  - "package.json"
-  - "pnpm-lock.yaml"
-  - "turbo.json"
-```
-
 ### Production Deployments
 
 For production, consider:
@@ -282,5 +267,33 @@ on:
 
 ---
 
+## 6. Troubleshooting
+
+### Migration Failures
+
+If migrations fail in CI:
+
+1. Check the workflow logs for the specific error
+2. Fix the migration locally and test with `pnpm db:migrate`
+3. Push the fix - CI will retry migrations
+
+### Rollback Triggered
+
+If rollback runs (deployment failed after migrations):
+
+1. The database is restored to pre-migration state via Neon PITR
+2. Check deploy logs to identify the failure cause
+3. Fix the issue and push again - migrations will re-run
+
+### Docker Build Failures
+
+Common issues:
+
+- **Lockfile mismatch:** Ensure `.npmrc` is included in Docker build context
+- **Type errors:** Run `pnpm turbo build` locally before pushing
+- **Missing dependencies:** Check that all workspace packages are copied in Dockerfile
+
+---
+
 **Document Maintainer:** AI Assistant  
-**Last Updated:** December 11, 2025
+**Last Updated:** December 19, 2025

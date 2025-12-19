@@ -1,5 +1,4 @@
-import { db } from "@history-portal/db";
-import { sql } from "drizzle-orm";
+import { db, sql } from "@history-portal/db";
 import { NextResponse } from "next/server";
 
 /**

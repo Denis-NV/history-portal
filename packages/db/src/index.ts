@@ -11,5 +11,23 @@
 export { db, dbPool } from "./client";
 export type { DbClient, DbPoolClient } from "./client";
 
+// Re-export drizzle-orm utilities (single source to avoid version conflicts)
+export {
+  sql,
+  eq,
+  ne,
+  gt,
+  gte,
+  lt,
+  lte,
+  and,
+  or,
+  not,
+  inArray,
+} from "drizzle-orm";
+
 // Schema exports (add tables here as they're created)
 export * from "./schema";
+
+// RLS helpers
+export { withRLS, withAdminAccess } from "./rls";

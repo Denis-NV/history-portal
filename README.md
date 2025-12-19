@@ -63,6 +63,7 @@ history-portal/
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — Technical decisions, tech stack, and project structure
+- [Authentication](docs/AUTHENTICATION.md) — Better Auth setup, RLS, and session management
 - [Infrastructure](docs/INFRASTRUCTURE.md) — Pulumi & GCP setup guide
 - [CI/CD](docs/CI-CD.md) — GitHub Actions workflows and setup
 
