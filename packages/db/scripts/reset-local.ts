@@ -1,27 +1,62 @@
 /**
- * Reset the local database.
+ * Reset the local development database.
  *
- * This script drops and recreates the database, then runs all migrations.
- * USE ONLY FOR LOCAL DEVELOPMENT - never run against production!
+ * This script detects whether you're using:
+ * - Neon dev branch (DATABASE_URL set to neon.tech) → resets via Neon API
+ * - Docker PostgreSQL (DATABASE_URL not set) → drops/recreates locally
  *
- * Usage: pnpm db:reset
+ * After reset, runs all migrations (Drizzle + RLS).
+ *
+ * Usage: pnpm db:reset:local
  */
 
-import postgres from "postgres";
-import { execSync } from "node:child_process";
+import { config } from "dotenv";
+import { resolve } from "node:path";
 
-import { adminConnectionString, isLocal, LOCAL_DATABASE } from "../src/config";
+// Load .env.local from portal package BEFORE importing config
+// (must be sync, before any dynamic imports)
+config({ path: resolve(import.meta.dirname, "../../portal/.env.local") });
+config({ path: resolve(import.meta.dirname, "../../portal/.env") });
 
-async function resetDatabase() {
-  // Safety check - only allow reset on local database
-  if (!isLocal) {
-    console.error("❌ db:reset can only be run against local database!");
-    console.error(
-      "   For Neon staging/prod, use: neonctl branches reset <branch-name>"
-    );
-    process.exit(1);
+// Dynamic import to ensure env is loaded first
+const { default: postgres } = await import("postgres");
+const { execSync } = await import("node:child_process");
+const { userInfo } = await import("node:os");
+
+const {
+  adminConnectionString,
+  connectionString,
+  isLocalDocker,
+  isNeon,
+  LOCAL_DATABASE,
+} = await import("../src/config");
+
+const username = userInfo().username;
+const DEV_BRANCH_NAME = `dev-${username}`;
+
+async function resetNeonBranch() {
+  console.log("🌐 Detected Neon database connection");
+  console.log(`🗑️  Resetting Neon branch '${DEV_BRANCH_NAME}'...`);
+
+  // Drop and recreate schemas for a clean slate
+  // This ensures we rely on migrations, not copied data from main
+  console.log("🧹 Dropping all tables...");
+  const sql = postgres(connectionString);
+  try {
+    // Drop drizzle schema (migration journal) so migrations re-run
+    await sql.unsafe(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
+    // Drop public schema (all tables)
+    await sql.unsafe(`DROP SCHEMA public CASCADE`);
+    await sql.unsafe(`CREATE SCHEMA public`);
+    await sql.unsafe(`GRANT ALL ON SCHEMA public TO PUBLIC`);
+    console.log("✅ Schema cleared");
+  } finally {
+    await sql.end();
   }
+}
 
+async function resetDockerDatabase() {
+  console.log("🐳 Detected Docker PostgreSQL connection");
   console.log("🗑️  Dropping database...");
 
   const sql = postgres(adminConnectionString);
@@ -43,10 +78,29 @@ async function resetDatabase() {
   } finally {
     await sql.end();
   }
+}
+
+async function resetDatabase() {
+  // Determine which mode we're in
+  if (isNeon) {
+    await resetNeonBranch();
+  } else if (isLocalDocker) {
+    await resetDockerDatabase();
+  } else {
+    console.error("❌ Unknown database configuration");
+    console.error("   DATABASE_URL should be either:");
+    console.error("   - A Neon connection string (contains neon.tech)");
+    console.error("   - Not set (uses local Docker PostgreSQL)");
+    process.exit(1);
+  }
 
   // Run migrations
   console.log("🔄 Running migrations...");
-  execSync("pnpm migrate:all", { stdio: "inherit", cwd: import.meta.dirname });
+  execSync("pnpm migrate:all", {
+    stdio: "inherit",
+    cwd: import.meta.dirname,
+    env: { ...process.env, DATABASE_URL: connectionString },
+  });
 
   console.log("🎉 Database reset complete!");
 }

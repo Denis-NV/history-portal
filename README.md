@@ -17,7 +17,7 @@ A personal full-stack TypeScript web application for exploring historical timeli
 
 - Node.js 20+
 - pnpm 10+
-- Docker (for local database)
+- Docker (optional, for offline database)
 
 ### Setup
 
@@ -26,11 +26,36 @@ A personal full-stack TypeScript web application for exploring historical timeli
 git clone <repo-url>
 cd history-portal
 pnpm install
+```
 
-# Start local database
-docker compose up -d
+#### Option A: Neon Dev Branch (Recommended)
 
-# Start development server
+Uses a personal branch on the staging Neon project (requires staging deployed):
+
+```bash
+# One-time: Create your dev branch and get connection string
+pnpm db:setup:neon-dev
+
+# Add the output DATABASE_URL to packages/portal/.env.local
+# Then reset and run migrations
+pnpm db:reset:local
+```
+
+#### Option B: Docker PostgreSQL (Offline)
+
+For offline development or full database isolation:
+
+```bash
+# Start local PostgreSQL
+pnpm db:start
+
+# Reset and run migrations
+pnpm db:reset:local
+```
+
+#### Start Development
+
+```bash
 pnpm dev:portal
 ```
 

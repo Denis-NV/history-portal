@@ -19,6 +19,7 @@
     "migrate:all": "drizzle-kit migrate && tsx scripts/migrate-rls.ts",
     "reset:local": "tsx scripts/reset-local.ts",
     "reset:staging": "tsx scripts/reset-staging.ts",
+    "setup:neon-dev": "tsx scripts/setup-dev-branch.ts",
     "neon:auth": "neonctl auth",
     "dev": "drizzle-kit studio",
     "check-types": "tsc --noEmit"
@@ -27,6 +28,7 @@
     "@neondatabase/serverless": "^0.10.4",
     "@types/pg": "^8.16.0",
     "better-auth": "^1.4.7",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.41.0",
     "pg": "^8.16.3"
   },

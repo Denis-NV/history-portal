@@ -29,6 +29,18 @@ export const adminConnectionString = `postgres://${LOCAL_USER}:${LOCAL_PASSWORD}
 
 /**
  * Detect if running against local Docker PostgreSQL.
- * Used to configure the Neon driver for local development.
+ * True when DATABASE_URL is not set (uses default localtest.me).
  */
-export const isLocal = connectionString.includes("localtest.me");
+export const isLocalDocker = connectionString.includes("localtest.me");
+
+/**
+ * Detect if running against Neon (cloud or dev branch).
+ * True when DATABASE_URL contains neon.tech.
+ */
+export const isNeon = connectionString.includes("neon.tech");
+
+/**
+ * Legacy alias for isLocalDocker.
+ * @deprecated Use isLocalDocker or isNeon instead.
+ */
+export const isLocal = isLocalDocker;

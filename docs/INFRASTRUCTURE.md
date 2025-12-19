@@ -11,14 +11,15 @@
 
 1. [Overview](#1-overview)
 2. [Prerequisites](#2-prerequisites)
-3. [GCP Project Setup](#3-gcp-project-setup)
-4. [Pulumi Setup](#4-pulumi-setup)
-5. [Stack Configuration](#5-stack-configuration)
-6. [Resources](#6-resources)
-7. [Docker & Cloud Run Deployment](#7-docker--cloud-run-deployment)
-8. [Common Commands](#8-common-commands)
-9. [Troubleshooting](#9-troubleshooting)
-10. [CI/CD Integration](#10-cicd-integration)
+3. [Local Development](#3-local-development)
+4. [GCP Project Setup](#4-gcp-project-setup)
+5. [Pulumi Setup](#5-pulumi-setup)
+6. [Stack Configuration](#6-stack-configuration)
+7. [Resources](#7-resources)
+8. [Docker & Cloud Run Deployment](#8-docker--cloud-run-deployment)
+9. [Common Commands](#9-common-commands)
+10. [Troubleshooting](#10-troubleshooting)
+11. [CI/CD Integration](#11-cicd-integration)
 
 ---
 
@@ -27,33 +28,33 @@
 ### Architecture
 
 ```
-Local Development          Cloud Infrastructure
-─────────────────          ────────────────────
+Local Development                    Cloud Infrastructure
+─────────────────                    ────────────────────
 
-┌─────────────────┐        ┌─────────────────────────────────┐
-│  pnpm dev       │        │         GCP Project             │
-│  (Next.js)      │        │   ┌─────────────────────────┐   │
-└────────┬────────┘        │   │      Cloud Run          │   │
-         │                 │   │   (Next.js Container)   │   │
-         ▼                 │   └───────────┬─────────────┘   │
-┌─────────────────┐        │               │                 │
-│  Docker         │        │   ┌───────────▼─────────────┐   │
-│  (PostgreSQL)   │        │   │      Neon Database      │   │
-└─────────────────┘        │   │   (Serverless Postgres) │   │
-                           │   └─────────────────────────┘   │
-                           └─────────────────────────────────┘
+┌─────────────────────────────┐     ┌─────────────────────────────────┐
+│  pnpm dev (Next.js)         │     │         GCP Project             │
+└────────────┬────────────────┘     │   ┌─────────────────────────┐   │
+             │                      │   │      Cloud Run          │   │
+             ▼                      │   │   (Next.js Container)   │   │
+┌─────────────────────────────┐     │   └───────────┬─────────────┘   │
+│  Database (choose one):     │     │               │                 │
+│  ├─ Docker PostgreSQL       │     │   ┌───────────▼─────────────┐   │
+│  │  (offline/isolated)      │     │   │      Neon Database      │   │
+│  └─ Neon dev-local branch   │     │   │   (Serverless Postgres) │   │
+│     (staging project)       │     │   └─────────────────────────┘   │
+└─────────────────────────────┘     └─────────────────────────────────┘
 ```
 
 ### Environment Strategy
 
-| Environment | Pulumi Stack | Database                   | Purpose                     |
-| ----------- | ------------ | -------------------------- | --------------------------- |
-| Local       | (none)       | Docker PostgreSQL 17       | Development with hot reload |
-| Staging     | `staging`    | Neon Project (staging)     | Pre-production testing      |
-| Production  | `prod`       | Neon Project (prod)        | Live application            |
-| CI/CD       | (ephemeral)  | Neon Branch (from staging) | Automated testing           |
+| Environment | Pulumi Stack | Database                          | Purpose                     |
+| ----------- | ------------ | --------------------------------- | --------------------------- |
+| Local       | (none)       | Docker OR Neon `dev-local` branch | Development with hot reload |
+| Staging     | `staging`    | Neon Project (staging)            | Pre-production testing      |
+| Production  | `prod`       | Neon Project (prod)               | Live application            |
+| CI/CD       | (ephemeral)  | Neon Branch (from staging)        | Automated testing           |
 
-> **Note:** Staging and Production use separate Neon projects for complete isolation. CI/CD tests use ephemeral branches from the staging project.
+> **Note:** Staging and Production use separate Neon projects for complete isolation. CI/CD tests and local Neon development use branches from the staging project.
 
 ---
 
@@ -93,7 +94,77 @@ This approach:
 
 ---
 
-## 3. GCP Project Setup
+## 3. Local Development
+
+The db package supports two modes for local development:
+
+| Mode            | Use Case                                     | Connection String Domain        |
+| --------------- | -------------------------------------------- | ------------------------------- |
+| **Neon Branch** | Branch testing, same as CI/CD, always online | `*.neon.tech`                   |
+| **Docker**      | Offline work, isolated, full DB control      | `*.localtest.me` or `localhost` |
+
+### Option A: Neon Dev Branch (Recommended)
+
+This gives you the same branching capability locally that CI/CD uses:
+
+```bash
+# One-time setup: Create a personal dev branch on staging
+pnpm db:setup:neon-dev
+
+# Output: DATABASE_URL connection string
+# Add this to packages/portal/.env.local
+```
+
+The script:
+
+1. Gets the staging Neon project ID from Pulumi
+2. Creates a `dev-{username}` branch (e.g., `dev-denis`) if it doesn't exist
+3. Outputs the connection string for your `.env.local`
+
+**Benefits:**
+
+- Same Neon branching model as CI/CD
+- Test branch-based migrations locally
+- No local Docker required
+- Each developer gets their own isolated branch
+
+### Option B: Docker PostgreSQL (Fallback)
+
+For offline development or full database isolation:
+
+```bash
+# Start Docker PostgreSQL
+pnpm db:start
+
+# Use the default .env DATABASE_URL (localtest.me)
+```
+
+### Resetting the Database
+
+The `reset:local` script auto-detects your mode and acts accordingly:
+
+```bash
+pnpm db:reset:local
+```
+
+- **Neon mode**: Resets the branch via Neon API (preserves branch, recreates data)
+- **Docker mode**: Drops and recreates the database
+
+### Switching Modes
+
+To switch between modes, update `DATABASE_URL` in `packages/portal/.env.local`:
+
+```bash
+# Neon dev branch (default for online work)
+DATABASE_URL=postgresql://...@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
+
+# Docker (for offline/isolated work)
+DATABASE_URL=postgresql://dev:dev@db.localtest.me:5432/history_portal_local
+```
+
+---
+
+## 4. GCP Project Setup
 
 ### Step 1: Create GCP Project
 
@@ -145,7 +216,7 @@ gcloud services enable \
 
 ---
 
-## 4. Pulumi Setup
+## 5. Pulumi Setup
 
 ### Project Structure
 
@@ -219,7 +290,7 @@ See the actual configuration files for current values:
 
 ---
 
-## 5. Stack Configuration
+## 6. Stack Configuration
 
 ### Current Stacks
 
@@ -283,7 +354,7 @@ pnpm pulumi config
 
 ---
 
-## 6. Resources
+## 7. Resources
 
 ### Current Resources (Staging)
 
@@ -328,7 +399,7 @@ config:
 
 ---
 
-## 7. Docker & Cloud Run Deployment
+## 8. Docker & Cloud Run Deployment
 
 ### Configuration Files
 
@@ -388,7 +459,7 @@ gcloud run services logs read portal-staging --region=europe-west2 --tail=50
 
 ---
 
-## 8. Common Commands
+## 9. Common Commands
 
 ### Root-Level Commands (Recommended)
 
@@ -444,7 +515,7 @@ gcloud run services logs read SERVICE_NAME
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ### Common Issues
 
@@ -505,7 +576,7 @@ pnpm pulumi stack --show-urns
 
 ---
 
-## 10. CI/CD Integration
+## 11. CI/CD Integration
 
 See [CI-CD.md](./CI-CD.md) for complete GitHub Actions setup instructions.
 
