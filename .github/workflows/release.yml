@@ -5,10 +5,16 @@
 # - When you add shared packages (utils, db), add their paths here
 # - Turborepo's dependency graph ensures correct build order
 #
-# Future considerations:
-# - For db migrations: run migrations BEFORE deploying new portal code
-# - Consider adding a "migrate" job that runs between verify and deploy
-# - Example: verify → migrate → deploy (with proper rollback strategy)
+# Migration strategy:
+# - Migrations run BEFORE deploying new portal code
+# - If migrations fail, deployment is skipped
+# - If deployment fails, we restore from Neon backup (point-in-time recovery)
+#
+# Note on rollback:
+# Drizzle doesn't have built-in rollback. We use Neon's PITR instead:
+# 1. Before migration, we record a timestamp
+# 2. If deployment fails, we restore the branch to that timestamp
+# This only works for Neon branches, not the main project.
 
 name: Release
 
@@ -18,9 +24,8 @@ on:
     paths:
       # Trigger on portal app changes
       - "packages/portal/**"
-      # Trigger on shared packages (add more as you create them)
-      # - "packages/utils/**"
-      # - "packages/db/**"
+      # Trigger on shared packages
+      - "packages/db/**"
       # Trigger on infra changes (deploys even if app code unchanged)
       - "infra/**"
       # Trigger on root config changes that affect builds
@@ -45,10 +50,69 @@ jobs:
     name: Verify
     uses: ./.github/workflows/verify.yml
 
-  # Deploy to staging after verification passes
+  # Run migrations before deployment
+  migrate:
+    name: Run Migrations
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      migration_timestamp: ${{ steps.timestamp.outputs.timestamp }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd infra && pnpm install --ignore-workspace
+
+      # Get database URL from Pulumi outputs
+      - name: Get Database URL
+        id: db
+        run: |
+          cd infra
+          DATABASE_URL=$(pnpm pulumi stack output databaseConnectionUri --stack staging --show-secrets 2>/dev/null || echo "")
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Could not get DATABASE_URL from Pulumi. Stack may not exist yet."
+            echo "skip_migrations=true" >> $GITHUB_OUTPUT
+          else
+            echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+            echo "skip_migrations=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Record timestamp before migration for potential rollback
+      - name: Record pre-migration timestamp
+        id: timestamp
+        if: steps.db.outputs.skip_migrations != 'true'
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "Pre-migration timestamp: $TIMESTAMP"
+
+      # Run Drizzle migrations
+      - name: Run database migrations
+        if: steps.db.outputs.skip_migrations != 'true'
+        run: pnpm db:migrate
+
+      # Run RLS migrations
+      - name: Run RLS migrations
+        if: steps.db.outputs.skip_migrations != 'true'
+        run: pnpm db:migrate:rls
+
+  # Deploy to staging after migrations pass
   deploy:
     name: Deploy to Staging
-    needs: verify
+    needs: [verify, migrate]
     runs-on: ubuntu-latest
 
     # Required for GCP Workload Identity Federation (recommended over service account keys)
@@ -105,8 +169,63 @@ jobs:
       # Deploy using Pulumi
       # The infra/index.ts builds the Docker image and deploys to Cloud Run
       - name: Deploy to staging
+        id: deploy
         run: pnpm infra:up:staging --yes
 
       # Output the deployed URL
       - name: Get deployment URL
         run: pnpm pulumi stack output serviceUrl --stack staging
+
+  # Rollback migrations if deployment fails
+  # This uses Neon's point-in-time recovery
+  rollback:
+    name: Rollback Migrations
+    needs: [migrate, deploy]
+    runs-on: ubuntu-latest
+    if: failure() && needs.deploy.result == 'failure' && needs.migrate.outputs.migration_timestamp != ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd infra && pnpm install --ignore-workspace
+
+      # Rollback using Neon CLI
+      # Note: This restores the branch to the pre-migration state
+      - name: Rollback database to pre-migration state
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          echo "⚠️ Deployment failed! Attempting database rollback..."
+          echo "Rolling back to timestamp: ${{ needs.migrate.outputs.migration_timestamp }}"
+
+          # Get project ID from Pulumi
+          cd infra
+          PROJECT_ID=$(pnpm pulumi stack output neonProjectId --stack staging 2>/dev/null || echo "")
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "::error::Could not get Neon project ID. Manual rollback may be required."
+            exit 1
+          fi
+
+          # Use Neon API to restore branch to timestamp
+          # Note: This requires the Neon API key to be set as a secret
+          curl -X POST "https://console.neon.tech/api/v2/projects/${PROJECT_ID}/branches/main/restore" \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"source_timestamp\": \"${{ needs.migrate.outputs.migration_timestamp }}\"}" \
+            || echo "::warning::Automated rollback failed. Please restore manually from Neon console."
+
+          echo "Database rollback initiated. Check Neon console for status."

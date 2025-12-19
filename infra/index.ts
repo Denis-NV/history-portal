@@ -136,6 +136,7 @@ const service = new gcp.cloudrun.Service("portal", {
             // Use: pulumi config set appUrl "https://portal-staging-xxx.run.app"
             // Or use a custom domain once configured
             { name: "NEXT_PUBLIC_APP_URL", value: config.require("appUrl") },
+            { name: "BETTER_AUTH_URL", value: config.require("appUrl") },
           ],
         },
       ],

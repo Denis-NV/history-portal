@@ -11,3 +11,7 @@ config:
   history-portal:emailFrom: onboarding@resend.dev
   history-portal:resendApiKey:
     secure: AAABAEWLy1h4HCw8zdBoRdS4r039LGoIbj3drMQFGHKWseneMhQioVU9igGTuuACVZBwBf8H5E8TOTDKt/RLIn4g2zo=
+  history-portal:googleClientId:
+    secure: AAABAI7ZPx9I9VV6lC3fF90dEzj6YAahyAx4GvtsNyCZnFeqPffotiU8Cg==
+  history-portal:googleClientSecret:
+    secure: AAABAO+dZM10294/STS0w9VDJQvI+RCF9lU2LNl3C8NTYk9v7O1TBuojXQ==

@@ -1,11 +1,14 @@
 import { dbPool, sql } from "@history-portal/db";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
-import type { PgTransaction } from "drizzle-orm/pg-core";
-import type { NeonQueryResultHKT } from "drizzle-orm/neon-serverless";
+import type { PgTransaction, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type * as schema from "./schema";
 
-type Transaction = PgTransaction<
-  NeonQueryResultHKT,
+/**
+ * Transaction type for RLS operations.
+ * Supports both node-postgres (local) and neon-serverless (production) drivers.
+ */
+export type RLSTransaction = PgTransaction<
+  PgQueryResultHKT,
   typeof schema,
   ExtractTablesWithRelations<typeof schema>
 >;
@@ -25,13 +28,14 @@ type Transaction = PgTransaction<
  */
 export async function withRLS<T>(
   userId: string,
-  operation: (tx: Transaction) => Promise<T>
+  operation: (tx: RLSTransaction) => Promise<T>
 ): Promise<T> {
-  return dbPool.transaction(async (tx) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return dbPool.transaction(async (tx: any) => {
     // Set the user ID for RLS policies
     await tx.execute(sql`SET LOCAL app.user_id = ${userId}`);
 
-    return operation(tx);
+    return operation(tx as RLSTransaction);
   });
 }
 
@@ -51,12 +55,13 @@ export async function withRLS<T>(
  * ```
  */
 export async function withAdminAccess<T>(
-  operation: (tx: Transaction) => Promise<T>
+  operation: (tx: RLSTransaction) => Promise<T>
 ): Promise<T> {
-  return dbPool.transaction(async (tx) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return dbPool.transaction(async (tx: any) => {
     // Set admin flag to bypass RLS
     await tx.execute(sql`SET LOCAL app.is_admin = 'true'`);
 
-    return operation(tx);
+    return operation(tx as RLSTransaction);
   });
 }
