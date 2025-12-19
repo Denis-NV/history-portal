@@ -25,6 +25,16 @@ const appConfig = new pulumi.Config("app");
 const neonRegion = appConfig.get("neonRegion") || "aws-eu-west-2"; // London
 const neonOrgId = appConfig.require("neonOrgId");
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth Secrets Configuration
+// Set via: pulumi config set --secret <key> <value>
+// ─────────────────────────────────────────────────────────────────────────────
+const betterAuthSecret = config.requireSecret("betterAuthSecret");
+const googleClientId = config.requireSecret("googleClientId");
+const googleClientSecret = config.requireSecret("googleClientSecret");
+const resendApiKey = config.requireSecret("resendApiKey");
+const emailFrom = config.require("emailFrom"); // Not secret, just config
+
 // Returns the current stack name (e.g., "staging" or "prod")
 // Used to namespace resources: portal-staging, portal-prod
 const stack = pulumi.getStack();
@@ -116,6 +126,16 @@ const service = new gcp.cloudrun.Service("portal", {
               name: "DATABASE_URL",
               value: neonProject.connectionUri,
             },
+            // Auth configuration
+            { name: "BETTER_AUTH_SECRET", value: betterAuthSecret },
+            { name: "GOOGLE_CLIENT_ID", value: googleClientId },
+            { name: "GOOGLE_CLIENT_SECRET", value: googleClientSecret },
+            { name: "RESEND_API_KEY", value: resendApiKey },
+            { name: "EMAIL_FROM", value: emailFrom },
+            // NEXT_PUBLIC_APP_URL is set via config since Cloud Run URL is dynamic
+            // Use: pulumi config set appUrl "https://portal-staging-xxx.run.app"
+            // Or use a custom domain once configured
+            { name: "NEXT_PUBLIC_APP_URL", value: config.require("appUrl") },
           ],
         },
       ],
