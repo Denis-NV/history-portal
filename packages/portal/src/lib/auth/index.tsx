@@ -1,9 +1,9 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { Resend } from "resend";
-import { EmailTemplate } from "better-auth-ui/server";
 
 import { db, user, session, account, verification } from "@history-portal/db";
+import { EmailTemplate } from "./email-template";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Better Auth Server Configuration
@@ -43,6 +43,39 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    sendResetPassword: async ({ user: emailUser, url }) => {
+      if (!resend) {
+        console.warn(
+          "RESEND_API_KEY not set. Password reset disabled in development."
+        );
+        console.log(`Password reset URL for ${emailUser.email}: ${url}`);
+        return;
+      }
+
+      const name = emailUser.name || emailUser.email.split("@")[0];
+
+      await resend.emails.send({
+        from: process.env.EMAIL_FROM ?? "onboarding@resend.dev",
+        to: emailUser.email,
+        subject: "Reset your password",
+        react: EmailTemplate({
+          action: "Reset Password",
+          content: (
+            <>
+              <p>Hello {name},</p>
+              <p>
+                We received a request to reset your password. Click the button
+                below to choose a new password.
+              </p>
+              <p>This link will expire in 1 hour.</p>
+            </>
+          ),
+          heading: "Reset Your Password",
+          siteName: "History Portal",
+          url,
+        }),
+      });
+    },
   },
 
   // ─────────────────────────────────────────────────────────────────────────
