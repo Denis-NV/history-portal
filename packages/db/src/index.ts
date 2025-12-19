@@ -28,3 +28,6 @@ export {
 
 // Schema exports (add tables here as they're created)
 export * from "./schema";
+
+// RLS helpers
+export { withRLS, withAdminAccess } from "./rls";
