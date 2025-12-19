@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -15,59 +15,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { signUpSchema, type SignUpValues } from "./schemas";
-import { validateForm } from "./validation";
-import { signUp, signIn } from "@/lib/auth/client";
+import { signUpAction, type SignUpState } from "./actions";
+import { signIn } from "@/lib/auth/client";
 import { AUTH_ROUTES, REDIRECT } from "@/const";
 
+const initialState: SignUpState = {};
+
 export function SignUpForm() {
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  const [success, setSuccess] = useState<string>();
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
-      confirmPassword: formData.get("confirmPassword") as string,
-    };
-
-    const { data: validData, errors } = validateForm<SignUpValues>(
-      data,
-      signUpSchema
-    );
-
-    if (errors || !validData) {
-      setFieldErrors(errors || {});
-      return;
-    }
-
-    setError(undefined);
-    setSuccess(undefined);
-    setFieldErrors({});
-    startTransition(async () => {
-      const { error } = await signUp.email({
-        name: validData.name,
-        email: validData.email,
-        password: validData.password,
-      });
-
-      if (error) {
-        setError(
-          error.message || "Failed to create account. Please try again."
-        );
-        return;
-      }
-
-      setSuccess(
-        "Account created! Please check your email to verify your account."
-      );
-    });
-  };
+  const [state, formAction, isPending] = useActionState(
+    signUpAction,
+    initialState
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -76,15 +34,15 @@ export function SignUpForm() {
         <CardDescription>Enter your details to get started</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+        <form action={formAction} className="space-y-4">
+          {state.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {state.error}
             </div>
           )}
-          {success && (
+          {state.success && (
             <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-600">
-              {success}
+              {state.success}
             </div>
           )}
 
@@ -96,10 +54,12 @@ export function SignUpForm() {
               type="text"
               placeholder="Your name"
               autoComplete="name"
-              aria-invalid={!!fieldErrors.name}
+              aria-invalid={!!state.fieldErrors?.name}
             />
-            {fieldErrors.name && (
-              <p className="text-sm text-destructive">{fieldErrors.name}</p>
+            {state.fieldErrors?.name && (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.name}
+              </p>
             )}
           </div>
 
@@ -111,10 +71,12 @@ export function SignUpForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              aria-invalid={!!fieldErrors.email}
+              aria-invalid={!!state.fieldErrors?.email}
             />
-            {fieldErrors.email && (
-              <p className="text-sm text-destructive">{fieldErrors.email}</p>
+            {state.fieldErrors?.email && (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.email}
+              </p>
             )}
           </div>
 
@@ -126,10 +88,12 @@ export function SignUpForm() {
               type="password"
               placeholder="••••••••"
               autoComplete="new-password"
-              aria-invalid={!!fieldErrors.password}
+              aria-invalid={!!state.fieldErrors?.password}
             />
-            {fieldErrors.password && (
-              <p className="text-sm text-destructive">{fieldErrors.password}</p>
+            {state.fieldErrors?.password && (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.password}
+              </p>
             )}
           </div>
 
@@ -141,11 +105,11 @@ export function SignUpForm() {
               type="password"
               placeholder="••••••••"
               autoComplete="new-password"
-              aria-invalid={!!fieldErrors.confirmPassword}
+              aria-invalid={!!state.fieldErrors?.confirmPassword}
             />
-            {fieldErrors.confirmPassword && (
+            {state.fieldErrors?.confirmPassword && (
               <p className="text-sm text-destructive">
-                {fieldErrors.confirmPassword}
+                {state.fieldErrors.confirmPassword}
               </p>
             )}
           </div>
@@ -172,11 +136,9 @@ export function SignUpForm() {
             className="w-full"
             disabled={isPending}
             onClick={() => {
-              startTransition(async () => {
-                await signIn.social({
-                  provider: "google",
-                  callbackURL: REDIRECT.AFTER_SIGN_IN,
-                });
+              signIn.social({
+                provider: "google",
+                callbackURL: REDIRECT.AFTER_SIGN_IN,
               });
             }}
           >

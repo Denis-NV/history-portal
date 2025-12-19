@@ -3,7 +3,7 @@
 > **Purpose:** Comprehensive documentation of the Better Auth implementation in this project. Serves as context for AI assistants and developer reference.
 
 **Last Updated:** December 19, 2025  
-**Status:** Implementation In Progress
+**Status:** ✅ Implementation Complete
 
 ---
 
@@ -16,11 +16,12 @@
 5. [Database Schema](#5-database-schema)
 6. [Server Configuration](#6-server-configuration)
 7. [Client Configuration](#7-client-configuration)
-8. [Route Protection](#8-route-protection)
-9. [Row Level Security (RLS)](#9-row-level-security-rls)
-10. [Environment Variables](#10-environment-variables)
-11. [Setup Checklist](#11-setup-checklist)
-12. [Common Patterns](#12-common-patterns)
+8. [Auth Components](#8-auth-components)
+9. [Route Protection](#9-route-protection)
+10. [Row Level Security (RLS)](#10-row-level-security-rls)
+11. [Environment Variables](#11-environment-variables)
+12. [Setup Checklist](#12-setup-checklist)
+13. [Common Patterns](#13-common-patterns)
 
 ---
 
@@ -32,17 +33,16 @@ This project uses [Better Auth](https://www.better-auth.com/) for authentication
 - **Google OAuth** social login
 - **Session-based** authentication (not JWT)
 - **Drizzle ORM** adapter for database integration
-- **better-auth-ui** for pre-built auth UI components
+- **Custom auth components** with Server Actions for progressive enhancement
 - **Resend** for transactional emails
 
 ### Key Packages
 
-| Package                        | Version | Purpose                      |
-| ------------------------------ | ------- | ---------------------------- |
-| `better-auth`                  | ^1.4.7  | Core authentication library  |
-| `better-auth-ui`               | ^3.2.6  | Pre-built auth UI components |
-| `@better-auth/react-hook-form` | ^0.0.11 | Form integration             |
-| `resend`                       | ^4.5.1  | Email delivery service       |
+| Package       | Version | Purpose                     |
+| ------------- | ------- | --------------------------- |
+| `better-auth` | ^1.4.7  | Core authentication library |
+| `zod`         | ^4.2.1  | Form validation schemas     |
+| `resend`      | ^4.5.1  | Email delivery service      |
 
 ---
 
@@ -59,6 +59,18 @@ This project uses [Better Auth](https://www.better-auth.com/) for authentication
 
 **Decision:** Use Better Auth for maximum portability and control.
 
+### Why Custom Components over better-auth-ui?
+
+| Consideration               | Custom Components                   | better-auth-ui                |
+| --------------------------- | ----------------------------------- | ----------------------------- |
+| **React 19 Compatibility**  | ✅ Native support                   | ❌ RSC boundary issues        |
+| **Progressive Enhancement** | ✅ Server Actions, works without JS | ❌ Client-only                |
+| **Turbopack Compatibility** | ✅ No issues                        | ❌ Module resolution problems |
+| **Bundle Size**             | ✅ Minimal                          | ⚠️ Adds dependencies          |
+| **Customization**           | ✅ Full control                     | ⚠️ Theme-based                |
+
+**Decision:** Use custom auth components with Server Actions for React 19 compatibility and progressive enhancement.
+
 ### Why Session-Based RLS over JWT Claims?
 
 | Approach                   | Pros                               | Cons                                 |
@@ -67,15 +79,6 @@ This project uses [Better Auth](https://www.better-auth.com/) for authentication
 | **JWT claims**             | Single source of truth             | Requires Neon Auth, harder to revoke |
 
 **Decision:** Use session-based RLS via `SET LOCAL app.user_id = '<uuid>'` for portability.
-
-### Why Scoped AuthUIProvider?
-
-The `AuthUIProvider` from better-auth-ui is only needed for auth pages. Wrapping the entire app would:
-
-- Add unnecessary client-side JavaScript to all pages
-- Potentially cause hydration issues
-
-**Decision:** Wrap only `/auth/*` routes with `AuthUIProvider`, not the root layout.
 
 ---
 
@@ -153,19 +156,29 @@ packages/
     └── src/
         ├── lib/
         │   └── auth/
-        │       ├── index.tsx     # Better Auth server config
-        │       ├── client.ts     # Client-side auth config
-        │       └── session.ts    # getSession(), requireSession() helpers
+        │       ├── index.tsx         # Better Auth server config
+        │       ├── client.ts         # Client-side auth config (social login)
+        │       ├── session.ts        # getSession(), requireSession() helpers
+        │       └── email-template.tsx # Custom React email template
         ├── app/
         │   ├── api/
         │   │   └── auth/
         │   │       └── [...all]/
         │   │           └── route.ts   # Better Auth API handler
         │   └── auth/
-        │       ├── layout.tsx         # Auth layout with providers
-        │       ├── providers.tsx      # Scoped AuthUIProvider
-        │       └── [path]/
-        │           └── page.tsx       # Dynamic auth pages (sign-in, sign-up, etc.)
+        │       ├── sign-in/page.tsx       # Sign in page
+        │       ├── sign-up/page.tsx       # Sign up page
+        │       ├── forgot-password/page.tsx   # Forgot password page
+        │       └── reset-password/page.tsx    # Reset password page
+        ├── components/
+        │   └── auth/
+        │       ├── index.ts              # Re-exports all auth components
+        │       ├── actions.ts            # Server Actions for form handling
+        │       ├── schemas.ts            # Zod 4 validation schemas
+        │       ├── sign-in-form.tsx      # Sign in form component
+        │       ├── sign-up-form.tsx      # Sign up form component
+        │       ├── forgot-password-form.tsx  # Forgot password form
+        │       └── reset-password-form.tsx   # Reset password form
         ├── proxy.ts                   # Route protection (Next.js 16+)
         └── const/
             └── routes.ts              # Centralized route constants
@@ -216,26 +229,58 @@ Configures:
 
 ## 7. Client Configuration
 
-| File                                                                                        | Purpose                                |
-| ------------------------------------------------------------------------------------------- | -------------------------------------- |
-| [packages/portal/src/lib/auth/client.ts](../packages/portal/src/lib/auth/client.ts)         | Auth client with `NEXT_PUBLIC_APP_URL` |
-| [packages/portal/src/app/auth/providers.tsx](../packages/portal/src/app/auth/providers.tsx) | Scoped `AuthUIProvider` wrapper        |
+| File                                                                                | Purpose                                     |
+| ----------------------------------------------------------------------------------- | ------------------------------------------- |
+| [packages/portal/src/lib/auth/client.ts](../packages/portal/src/lib/auth/client.ts) | Auth client for social login (Google OAuth) |
 
-**Important:** Only `/auth/*` routes are wrapped with `AuthUIProvider`.
-
----
-
-## 8. Route Protection
-
-| File                                                                                  | Purpose                                                                         |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [packages/portal/src/proxy.ts](../packages/portal/src/proxy.ts)                       | Checks session cookie, redirects unauthenticated users (Next.js 16+ convention) |
-| [packages/portal/src/const/routes.ts](../packages/portal/src/const/routes.ts)         | Centralized route constants (`PUBLIC_ROUTES`, `PROTECTED_ROUTE_PREFIXES`, etc.) |
-| [packages/portal/src/lib/auth/session.ts](../packages/portal/src/lib/auth/session.ts) | `getSession()` and `requireSession()` helpers                                   |
+The client is used only for social login buttons, which require client-side JavaScript to redirect to the OAuth provider.
 
 ---
 
-## 9. Row Level Security (RLS)
+## 8. Auth Components
+
+Custom auth components using Server Actions for progressive enhancement (forms work without JavaScript).
+
+### Components
+
+| Component                                                                             | Purpose                   |
+| ------------------------------------------------------------------------------------- | ------------------------- |
+| [SignInForm](../packages/portal/src/components/auth/sign-in-form.tsx)                 | Email/password sign in    |
+| [SignUpForm](../packages/portal/src/components/auth/sign-up-form.tsx)                 | Account registration      |
+| [ForgotPasswordForm](../packages/portal/src/components/auth/forgot-password-form.tsx) | Request password reset    |
+| [ResetPasswordForm](../packages/portal/src/components/auth/reset-password-form.tsx)   | Reset password with token |
+
+### Supporting Files
+
+| File                                                            | Purpose                                 |
+| --------------------------------------------------------------- | --------------------------------------- |
+| [actions.ts](../packages/portal/src/components/auth/actions.ts) | Server Actions for all form submissions |
+| [schemas.ts](../packages/portal/src/components/auth/schemas.ts) | Zod 4 validation schemas                |
+
+### Progressive Enhancement
+
+Forms use React 19's `useActionState` hook for:
+
+- ✅ Forms submit and validate without JavaScript
+- ✅ Field-level error messages via `state.fieldErrors`
+- ✅ Loading states with `isPending`
+- ✅ Server-side redirect on success
+
+See [sign-in-form.tsx](../packages/portal/src/components/auth/sign-in-form.tsx) for the implementation pattern.
+
+---
+
+## 9. Route Protection
+
+| File                                                     | Purpose                                          |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| [proxy.ts](../packages/portal/src/proxy.ts)              | Checks session cookie, redirects unauthenticated |
+| [routes.ts](../packages/portal/src/const/routes.ts)      | Centralized route constants                      |
+| [session.ts](../packages/portal/src/lib/auth/session.ts) | `getSession()` and `requireSession()` helpers    |
+
+---
+
+## 10. Row Level Security (RLS)
 
 ### Approach
 
@@ -251,10 +296,10 @@ SET LOCAL app.is_admin = 'true';  -- Optional, for admin bypass
 
 ### Key Files
 
-| File                                                                                  | Purpose                                                           |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [packages/db/migrations/rls-policies.sql](../packages/db/migrations/rls-policies.sql) | `current_app_user_id()` and `is_app_admin()` PostgreSQL functions |
-| [packages/db/src/rls.ts](../packages/db/src/rls.ts)                                   | `withRLS()` and `withAdminAccess()` helpers                       |
+| File                                                           | Purpose                                     |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [rls-policies.sql](../packages/db/migrations/rls-policies.sql) | PostgreSQL RLS functions                    |
+| [rls.ts](../packages/db/src/rls.ts)                            | `withRLS()` and `withAdminAccess()` helpers |
 
 ### Adding RLS to Domain Tables
 
@@ -280,7 +325,7 @@ CREATE POLICY "Users can delete own data" ON your_table
 
 ---
 
-## 10. Environment Variables
+## 11. Environment Variables
 
 ### Required for Portal
 
@@ -346,7 +391,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 
 ---
 
-## 11. Setup Checklist
+## 12. Setup Checklist
 
 ### First-Time Setup
 
@@ -377,7 +422,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 
 ---
 
-## 12. Common Patterns
+## 13. Common Patterns
 
 | Pattern                        | How                                                                        |
 | ------------------------------ | -------------------------------------------------------------------------- |
@@ -385,6 +430,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 | **Optional Auth Check**        | `const session = await getSession();`                                      |
 | **Protected API Route**        | `const session = await auth.api.getSession({ headers: await headers() });` |
 | **Database Query with RLS**    | `await withRLS(user.id, async (db) => { ... });`                           |
+| **Social Login (Client)**      | `signIn.social({ provider: "google", callbackURL: "/dashboard" });`        |
 
 See [packages/portal/src/app/timeline/page.tsx](../packages/portal/src/app/timeline/page.tsx) for a working example.
 

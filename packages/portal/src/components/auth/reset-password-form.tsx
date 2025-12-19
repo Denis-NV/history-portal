@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/shadcn/button";
@@ -14,70 +15,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { resetPasswordSchema, type ResetPasswordValues } from "./schemas";
-import { validateForm } from "./validation";
-import { authClient } from "@/lib/auth/client";
+import { resetPasswordAction, type FormState } from "./actions";
 import { AUTH_ROUTES } from "@/const";
+
+const initialState: FormState = {};
 
 export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  const [success, setSuccess] = useState<string>();
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [state, formAction, isPending] = useActionState(resetPasswordAction, initialState);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!token) {
-      setError(
-        "Invalid or missing reset token. Please request a new password reset link."
-      );
-      return;
-    }
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      password: formData.get("password") as string,
-      confirmPassword: formData.get("confirmPassword") as string,
-    };
-
-    const { data: validData, errors } = validateForm<ResetPasswordValues>(
-      data,
-      resetPasswordSchema
-    );
-
-    if (errors || !validData) {
-      setFieldErrors(errors || {});
-      return;
-    }
-
-    setError(undefined);
-    setSuccess(undefined);
-    setFieldErrors({});
-    startTransition(async () => {
-      const { error } = await authClient.resetPassword({
-        token,
-        newPassword: validData.password,
-      });
-
-      if (error) {
-        setError(
-          error.message ||
-            "Failed to reset password. The link may have expired."
-        );
-        return;
-      }
-
-      setSuccess("Password reset successfully! Redirecting to sign in...");
-      setTimeout(() => {
+  // Redirect to sign-in after successful reset
+  useEffect(() => {
+    if (state.success) {
+      const timeout = setTimeout(() => {
         router.push(AUTH_ROUTES.SIGN_IN);
       }, 2000);
-    });
-  };
+      return () => clearTimeout(timeout);
+    }
+  }, [state.success, router]);
 
   if (!token) {
     return (
@@ -89,12 +47,9 @@ export function ResetPasswordForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            className="w-full"
-            onClick={() => router.push(AUTH_ROUTES.FORGOT_PASSWORD)}
-          >
-            Request New Link
-          </Button>
+          <Link href={AUTH_ROUTES.FORGOT_PASSWORD}>
+            <Button className="w-full">Request New Link</Button>
+          </Link>
         </CardContent>
       </Card>
     );
@@ -107,15 +62,18 @@ export function ResetPasswordForm() {
         <CardDescription>Enter your new password below</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+        <form action={formAction} className="space-y-4">
+          {/* Hidden field to pass token to server action */}
+          <input type="hidden" name="token" value={token} />
+
+          {state.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {state.error}
             </div>
           )}
-          {success && (
+          {state.success && (
             <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-600">
-              {success}
+              {state.success}
             </div>
           )}
 
@@ -127,10 +85,10 @@ export function ResetPasswordForm() {
               type="password"
               placeholder="••••••••"
               autoComplete="new-password"
-              aria-invalid={!!fieldErrors.password}
+              aria-invalid={!!state.fieldErrors?.password}
             />
-            {fieldErrors.password && (
-              <p className="text-sm text-destructive">{fieldErrors.password}</p>
+            {state.fieldErrors?.password && (
+              <p className="text-sm text-destructive">{state.fieldErrors.password}</p>
             )}
           </div>
 
@@ -142,11 +100,11 @@ export function ResetPasswordForm() {
               type="password"
               placeholder="••••••••"
               autoComplete="new-password"
-              aria-invalid={!!fieldErrors.confirmPassword}
+              aria-invalid={!!state.fieldErrors?.confirmPassword}
             />
-            {fieldErrors.confirmPassword && (
+            {state.fieldErrors?.confirmPassword && (
               <p className="text-sm text-destructive">
-                {fieldErrors.confirmPassword}
+                {state.fieldErrors.confirmPassword}
               </p>
             )}
           </div>

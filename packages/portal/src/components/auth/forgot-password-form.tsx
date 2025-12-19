@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -14,55 +14,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { forgotPasswordSchema, type ForgotPasswordValues } from "./schemas";
-import { validateForm } from "./validation";
-import { authClient } from "@/lib/auth/client";
+import { forgotPasswordAction, type FormState } from "./actions";
 import { AUTH_ROUTES } from "@/const";
 
+const initialState: FormState = {};
+
 export function ForgotPasswordForm() {
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  const [success, setSuccess] = useState<string>();
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get("email") as string,
-    };
-
-    const { data: validData, errors } = validateForm<ForgotPasswordValues>(
-      data,
-      forgotPasswordSchema
-    );
-
-    if (errors || !validData) {
-      setFieldErrors(errors || {});
-      return;
-    }
-
-    setError(undefined);
-    setSuccess(undefined);
-    setFieldErrors({});
-    startTransition(async () => {
-      const { error } = await authClient.requestPasswordReset({
-        email: validData.email,
-        redirectTo: AUTH_ROUTES.RESET_PASSWORD,
-      });
-
-      if (error) {
-        setError(
-          error.message || "Failed to send reset email. Please try again."
-        );
-        return;
-      }
-
-      setSuccess(
-        "If an account exists with this email, you will receive a password reset link."
-      );
-    });
-  };
+  const [state, formAction, isPending] = useActionState(forgotPasswordAction, initialState);
 
   return (
     <Card className="w-full max-w-md">
@@ -74,15 +32,15 @@ export function ForgotPasswordForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+        <form action={formAction} className="space-y-4">
+          {state.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {state.error}
             </div>
           )}
-          {success && (
+          {state.success && (
             <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-600">
-              {success}
+              {state.success}
             </div>
           )}
 
@@ -94,10 +52,10 @@ export function ForgotPasswordForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              aria-invalid={!!fieldErrors.email}
+              aria-invalid={!!state.fieldErrors?.email}
             />
-            {fieldErrors.email && (
-              <p className="text-sm text-destructive">{fieldErrors.email}</p>
+            {state.fieldErrors?.email && (
+              <p className="text-sm text-destructive">{state.fieldErrors.email}</p>
             )}
           </div>
 

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/shadcn/button";
@@ -16,54 +15,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { signInSchema, type SignInValues } from "./schemas";
-import { validateForm } from "./validation";
+import { signInAction, type FormState } from "./actions";
 import { signIn } from "@/lib/auth/client";
 import { AUTH_ROUTES, REDIRECT } from "@/const";
 
+const initialState: FormState = {};
+
 export function SignInForm() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
-    };
-
-    const { data: validData, errors } = validateForm<SignInValues>(
-      data,
-      signInSchema
-    );
-
-    if (errors || !validData) {
-      setFieldErrors(errors || {});
-      return;
-    }
-
-    setError(undefined);
-    setFieldErrors({});
-    startTransition(async () => {
-      const { error } = await signIn.email({
-        email: validData.email,
-        password: validData.password,
-      });
-
-      if (error) {
-        setError(
-          error.message || "Failed to sign in. Please check your credentials."
-        );
-        return;
-      }
-
-      router.push(REDIRECT.AFTER_SIGN_IN);
-      router.refresh();
-    });
-  };
+  const [state, formAction, isPending] = useActionState(
+    signInAction,
+    initialState
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -72,10 +34,10 @@ export function SignInForm() {
         <CardDescription>Sign in to your account to continue</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+        <form action={formAction} className="space-y-4">
+          {state.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {state.error}
             </div>
           )}
 
@@ -87,10 +49,12 @@ export function SignInForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              aria-invalid={!!fieldErrors.email}
+              aria-invalid={!!state.fieldErrors?.email}
             />
-            {fieldErrors.email && (
-              <p className="text-sm text-destructive">{fieldErrors.email}</p>
+            {state.fieldErrors?.email && (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.email}
+              </p>
             )}
           </div>
 
@@ -102,10 +66,12 @@ export function SignInForm() {
               type="password"
               placeholder="••••••••"
               autoComplete="current-password"
-              aria-invalid={!!fieldErrors.password}
+              aria-invalid={!!state.fieldErrors?.password}
             />
-            {fieldErrors.password && (
-              <p className="text-sm text-destructive">{fieldErrors.password}</p>
+            {state.fieldErrors?.password && (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.password}
+              </p>
             )}
           </div>
 
@@ -140,11 +106,9 @@ export function SignInForm() {
             className="w-full"
             disabled={isPending}
             onClick={() => {
-              startTransition(async () => {
-                await signIn.social({
-                  provider: "google",
-                  callbackURL: REDIRECT.AFTER_SIGN_IN,
-                });
+              signIn.social({
+                provider: "google",
+                callbackURL: REDIRECT.AFTER_SIGN_IN,
               });
             }}
           >
