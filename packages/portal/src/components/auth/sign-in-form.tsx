@@ -49,6 +49,7 @@ export function SignInForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
+              defaultValue={state.values?.email}
               aria-invalid={!!state.fieldErrors?.email}
             />
             {state.fieldErrors?.email && (

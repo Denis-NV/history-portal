@@ -263,6 +263,7 @@ Forms use React 19's `useActionState` hook for:
 
 - ✅ Forms submit and validate without JavaScript
 - ✅ Field-level error messages via `state.fieldErrors`
+- ✅ Form values preserved on error via `state.values`
 - ✅ Loading states with `isPending`
 - ✅ Server-side redirect on success
 

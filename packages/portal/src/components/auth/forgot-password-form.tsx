@@ -20,7 +20,10 @@ import { AUTH_ROUTES } from "@/const";
 const initialState: FormState = {};
 
 export function ForgotPasswordForm() {
-  const [state, formAction, isPending] = useActionState(forgotPasswordAction, initialState);
+  const [state, formAction, isPending] = useActionState(
+    forgotPasswordAction,
+    initialState
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -52,10 +55,13 @@ export function ForgotPasswordForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
+              defaultValue={state.values?.email}
               aria-invalid={!!state.fieldErrors?.email}
             />
             {state.fieldErrors?.email && (
-              <p className="text-sm text-destructive">{state.fieldErrors.email}</p>
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.email}
+              </p>
             )}
           </div>
 

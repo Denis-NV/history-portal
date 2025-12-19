@@ -54,6 +54,7 @@ export function SignUpForm() {
               type="text"
               placeholder="Your name"
               autoComplete="name"
+              defaultValue={state.values?.name}
               aria-invalid={!!state.fieldErrors?.name}
             />
             {state.fieldErrors?.name && (
@@ -71,6 +72,7 @@ export function SignUpForm() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
+              defaultValue={state.values?.email}
               aria-invalid={!!state.fieldErrors?.email}
             />
             {state.fieldErrors?.email && (

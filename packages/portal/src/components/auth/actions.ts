@@ -19,6 +19,7 @@ export type FormState = {
   error?: string;
   success?: string;
   fieldErrors?: Record<string, string>;
+  values?: Record<string, string>;
 };
 
 // Alias for backwards compatibility
@@ -47,7 +48,7 @@ export async function signUpAction(
       const path = issue.path.map(String).join(".") || "_form";
       if (!fieldErrors[path]) fieldErrors[path] = issue.message;
     }
-    return { fieldErrors };
+    return { fieldErrors, values: { name: data.name, email: data.email } };
   }
 
   try {
@@ -71,7 +72,10 @@ export async function signUpAction(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Failed to create account";
-    return { error: message };
+    return {
+      error: message,
+      values: { name: result.data.name, email: result.data.email },
+    };
   }
 }
 
@@ -96,7 +100,7 @@ export async function signInAction(
       const path = issue.path.map(String).join(".") || "_form";
       if (!fieldErrors[path]) fieldErrors[path] = issue.message;
     }
-    return { fieldErrors };
+    return { fieldErrors, values: { email: data.email } };
   }
 
   try {
@@ -109,11 +113,14 @@ export async function signInAction(
     });
 
     if (!response) {
-      return { error: "Invalid email or password." };
+      return {
+        error: "Invalid email or password.",
+        values: { email: result.data.email },
+      };
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to sign in";
-    return { error: message };
+    return { error: message, values: { email: result.data.email } };
   }
 
   // Redirect on success (must be outside try/catch)
@@ -140,7 +147,7 @@ export async function forgotPasswordAction(
       const path = issue.path.map(String).join(".") || "_form";
       if (!fieldErrors[path]) fieldErrors[path] = issue.message;
     }
-    return { fieldErrors };
+    return { fieldErrors, values: { email: data.email } };
   }
 
   try {
@@ -205,7 +212,7 @@ export async function resetPasswordAction(
       const path = issue.path.map(String).join(".") || "_form";
       if (!fieldErrors[path]) fieldErrors[path] = issue.message;
     }
-    return { fieldErrors };
+    return { fieldErrors, values: {} };
   }
 
   try {
