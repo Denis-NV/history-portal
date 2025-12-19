@@ -335,7 +335,6 @@ CREATE POLICY "Users can delete own data" ON your_table
 | `DATABASE_URL`         | Neon connection string                    | `postgresql://user:pass@host/db?sslmode=require` |
 | `BETTER_AUTH_SECRET`   | Secret for session signing (min 32 chars) | Generate with `openssl rand -base64 32`          |
 | `BETTER_AUTH_URL`      | Base URL for auth (email links, cookies)  | `http://localhost:3000`                          |
-| `NEXT_PUBLIC_APP_URL`  | App base URL (client-side)                | `http://localhost:3000`                          |
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    | `xxx.apps.googleusercontent.com`                 |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                | `GOCSPX-xxx`                                     |
 | `RESEND_API_KEY`       | Resend API key for emails                 | `re_xxx`                                         |
@@ -353,7 +352,6 @@ Create `packages/portal/.env.local`:
 # Auth
 BETTER_AUTH_SECRET="your-32-char-secret-here-for-local-dev"
 BETTER_AUTH_URL="http://localhost:3000"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # Google OAuth (optional for local)
 GOOGLE_CLIENT_ID="your-google-client-id"

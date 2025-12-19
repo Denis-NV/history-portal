@@ -132,10 +132,8 @@ const service = new gcp.cloudrun.Service("portal", {
             { name: "GOOGLE_CLIENT_SECRET", value: googleClientSecret },
             { name: "RESEND_API_KEY", value: resendApiKey },
             { name: "EMAIL_FROM", value: emailFrom },
-            // NEXT_PUBLIC_APP_URL is set via config since Cloud Run URL is dynamic
-            // Use: pulumi config set appUrl "https://portal-staging-xxx.run.app"
-            // Or use a custom domain once configured
-            { name: "NEXT_PUBLIC_APP_URL", value: config.require("appUrl") },
+            // BETTER_AUTH_URL is needed for email verification links
+            // Set via: pulumi config set appUrl "https://portal-staging-xxx.run.app"
             { name: "BETTER_AUTH_URL", value: config.require("appUrl") },
           ],
         },

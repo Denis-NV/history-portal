@@ -762,12 +762,11 @@ export const { GET, POST } = toNextJsHandler(auth);
 ### Client-Side Hook
 
 ```typescript
-// src/lib/auth-client.ts (planned)
+// src/lib/auth-client.ts
 import { createAuthClient } from "better-auth/react";
 
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
-});
+// No baseURL needed - uses relative URLs which resolve to current host
+export const authClient = createAuthClient();
 
 export const { useSession, signIn, signOut, signUp } = authClient;
 ```
