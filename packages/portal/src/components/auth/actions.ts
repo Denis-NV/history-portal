@@ -1,8 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers, cookies } from "next/headers";
-import { parse as parseSetCookie } from "set-cookie-parser";
+import { headers } from "next/headers";
 import {
   signUpSchema,
   signInSchema,
@@ -165,44 +164,26 @@ export async function signInAction(
   }
 
   try {
-    const response = await auth.api.signInEmail({
+    // With nextCookies plugin, cookies are automatically set
+    // No need for asResponse: true or manual cookie handling
+    await auth.api.signInEmail({
       body: {
         email: result.data.email,
         password: result.data.password,
       },
-      asResponse: true,
     });
+  } catch (err) {
+    // Better Auth throws on invalid credentials
+    const message = err instanceof Error ? err.message : String(err);
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
+    // Check for common auth errors
+    if (message.includes("Invalid") || message.includes("credentials")) {
       return {
-        error: getUserFriendlyError(
-          data?.message || "Invalid email or password.",
-          "Invalid email or password."
-        ),
+        error: "Invalid email or password.",
         values: { email: result.data.email },
       };
     }
 
-    // Forward the session cookie from Better Auth response to the browser
-    const setCookieHeader = response.headers.get("set-cookie");
-    if (setCookieHeader) {
-      const cookieStore = await cookies();
-      const parsedCookies = parseSetCookie(setCookieHeader, {
-        decodeValues: false,
-      });
-
-      for (const cookie of parsedCookies) {
-        cookieStore.set(cookie.name, cookie.value, {
-          path: cookie.path,
-          httpOnly: cookie.httpOnly,
-          secure: cookie.secure,
-          sameSite: cookie.sameSite as "lax" | "strict" | "none" | undefined,
-          maxAge: cookie.maxAge,
-        });
-      }
-    }
-  } catch (err) {
     return {
       error: getUserFriendlyError(err, "Failed to sign in. Please try again."),
       values: { email: result.data.email },
@@ -238,7 +219,7 @@ export async function forgotPasswordAction(
 
   try {
     // Call the forget-password endpoint via fetch since it may not be typed in auth.api
-    const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.BETTER_AUTH_URL;
     const response = await fetch(`${baseUrl}/api/auth/forget-password`, {
       method: "POST",
       headers: {

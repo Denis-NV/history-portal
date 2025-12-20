@@ -2,7 +2,7 @@
 
 > **Purpose:** Comprehensive documentation of the Better Auth implementation in this project. Serves as context for AI assistants and developer reference.
 
-**Last Updated:** December 19, 2025  
+**Last Updated:** December 20, 2025  
 **Status:** ✅ Implementation Complete
 
 ---
@@ -12,16 +12,17 @@
 1. [Overview](#1-overview)
 2. [Architecture Decisions](#2-architecture-decisions)
 3. [Auth Flow](#3-auth-flow)
-4. [Project Structure](#4-project-structure)
-5. [Database Schema](#5-database-schema)
-6. [Server Configuration](#6-server-configuration)
-7. [Client Configuration](#7-client-configuration)
-8. [Auth Components](#8-auth-components)
-9. [Route Protection](#9-route-protection)
-10. [Row Level Security (RLS)](#10-row-level-security-rls)
-11. [Environment Variables](#11-environment-variables)
-12. [Setup Checklist](#12-setup-checklist)
-13. [Common Patterns](#13-common-patterns)
+4. [Session & Cookie Lifecycle](#4-session--cookie-lifecycle)
+5. [Project Structure](#5-project-structure)
+6. [Database Schema](#6-database-schema)
+7. [Server Configuration](#7-server-configuration)
+8. [Client Configuration](#8-client-configuration)
+9. [Auth Components](#9-auth-components)
+10. [Route Protection](#10-route-protection)
+11. [Row Level Security (RLS)](#11-row-level-security-rls)
+12. [Environment Variables](#12-environment-variables)
+13. [Setup Checklist](#13-setup-checklist)
+14. [Common Patterns](#14-common-patterns)
 
 ---
 
@@ -133,7 +134,205 @@ This project uses [Better Auth](https://www.better-auth.com/) for authentication
 
 ---
 
-## 4. Project Structure
+## 4. Session & Cookie Lifecycle
+
+This section explains how Better Auth manages sessions and cookies in a Next.js Server Components environment.
+
+### Cookie Overview
+
+Better Auth uses an HTTP-only session cookie (`better-auth.session_token`) to maintain authentication state:
+
+| Property    | Value                                         |
+| ----------- | --------------------------------------------- |
+| Cookie Name | `better-auth.session_token`                   |
+| HttpOnly    | `true` (not accessible via JavaScript)        |
+| Secure      | `true` in production (HTTPS only)             |
+| SameSite    | `lax`                                         |
+| Path        | `/`                                           |
+| Max-Age     | 7 days (configurable via `session.expiresIn`) |
+
+### The Complete Cookie Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         1. USER SUBMITS SIGN-IN FORM                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Browser → POST form data → Server Action (signInAction)                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   2. SERVER ACTION CALLS BETTER AUTH API                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  await auth.api.signInEmail({                                               │
+│    body: { email, password }                                                │
+│  });                                                                        │
+│                                                                             │
+│  Better Auth:                                                               │
+│  1. Validates credentials against database                                  │
+│  2. Creates session record in `session` table                               │
+│  3. Generates session token                                                 │
+│  4. WANTS to set cookie, but Server Actions can't set cookies directly...   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│               3. nextCookies PLUGIN INTERCEPTS AND SETS COOKIE              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  The `nextCookies()` plugin (configured in auth/index.tsx) hooks into       │
+│  Better Auth's response and uses Next.js's `cookies()` API:                 │
+│                                                                             │
+│  // What nextCookies does internally:                                       │
+│  import { cookies } from "next/headers";                                    │
+│  const cookieStore = await cookies();                                       │
+│  cookieStore.set("better-auth.session_token", token, options);              │
+│                                                                             │
+│  This bridges Better Auth ↔ Next.js Server Actions cookie handling.         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   4. SERVER ACTION REDIRECTS TO /timeline                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  redirect("/timeline");  // From next/navigation                            │
+│                                                                             │
+│  Response includes Set-Cookie header with session token.                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       5. BROWSER STORES COOKIE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Browser receives Set-Cookie header and stores:                             │
+│  better-auth.session_token=<token>; HttpOnly; Secure; SameSite=Lax          │
+│                                                                             │
+│  Cookie is now stored and will be sent with ALL subsequent requests.        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   6. SUBSEQUENT REQUESTS (Page Load/Refresh)                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Browser → GET /timeline (Cookie: better-auth.session_token=xxx)            │
+│                                                                             │
+│  Next.js makes cookie available via:                                        │
+│  - `headers()` function (contains Cookie header)                            │
+│  - `cookies()` function (parsed cookies)                                    │
+│  - Request object in proxy.ts                                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          7. TWO-LAYER VALIDATION                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  LAYER 1: proxy.ts (fast, cookie-only)                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  const sessionCookie = getSessionCookie(request);                   │    │
+│  │  // Just checks: does the cookie EXIST? (no DB call)                │    │
+│  │  if (!sessionCookie && isProtectedRoute) redirect("/auth/sign-in"); │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              ↓                                              │
+│  LAYER 2: requireSession() in page (secure, DB-validated)                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  const session = await auth.api.getSession({                        │    │
+│  │    headers: await headers()                                         │    │
+│  │  });                                                                 │    │
+│  │  // Parses token → queries DB → validates expiry → returns session  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Functions Explained
+
+#### `getSessionCookie(request)` — Fast Cookie Check
+
+```typescript
+import { getSessionCookie } from "better-auth/cookies";
+
+// In proxy.ts
+const sessionCookie = getSessionCookie(request);
+```
+
+- **Purpose**: Quick check for cookie existence
+- **Returns**: The raw cookie value or `undefined`
+- **Performance**: No database call, just parses the Cookie header
+- **Use case**: Optimistic route protection in proxy
+
+#### `headers()` — Access Request Headers
+
+```typescript
+import { headers } from "next/headers";
+
+const session = await auth.api.getSession({
+  headers: await headers(),
+});
+```
+
+- **Purpose**: Provide request context to Better Auth
+- **Why needed**: Server Components don't have direct request access
+- **What it contains**: All HTTP headers including the Cookie header
+
+#### `nextCookies()` Plugin — Server Action Cookie Bridge
+
+```typescript
+// In auth/index.tsx
+import { nextCookies } from "better-auth/next-js";
+
+export const auth = betterAuth({
+  plugins: [nextCookies()],
+  // ...
+});
+```
+
+- **Purpose**: Enable cookie operations in Server Actions
+- **Why needed**: Server Actions can't access response headers directly
+- **How it works**: Hooks into Better Auth and uses `cookies().set()` from `next/headers`
+
+#### `requireSession()` — Validated Session with Redirect
+
+```typescript
+import { requireSession } from "@/lib/auth/session";
+
+export default async function ProtectedPage() {
+  const { user } = await requireSession();
+  // If we get here, session is valid and user exists
+}
+```
+
+- **Purpose**: Full session validation with automatic redirect
+- **Database call**: Yes, queries the `session` table
+- **On invalid/expired**: Redirects to `/auth/sign-in`
+
+### Cookie vs Database: When Each is Used
+
+| Operation            | Cookie Only      | Database Query |
+| -------------------- | ---------------- | -------------- |
+| `getSessionCookie()` | ✅               | ❌             |
+| `getSession()`       | ✅ (reads token) | ✅ (validates) |
+| `requireSession()`   | ✅ (reads token) | ✅ (validates) |
+| Sign in/Sign up      | ❌               | ✅ (creates)   |
+| Sign out             | ✅ (deletes)     | ✅ (deletes)   |
+
+### Why Two Layers?
+
+| Layer                | Speed      | Security      | Purpose                                              |
+| -------------------- | ---------- | ------------- | ---------------------------------------------------- |
+| **proxy.ts**         | ⚡ Fast    | ⚠️ Optimistic | Prevent obvious unauthenticated access, good UX      |
+| **requireSession()** | 🐢 DB call | ✅ Secure     | Actual validation, prevents expired/revoked sessions |
+
+The proxy catches 99% of unauthenticated requests without a database call. The page-level check ensures security even if someone has an expired or revoked cookie.
+
+---
+
+## 5. Project Structure
 
 ```
 packages/
@@ -186,7 +385,7 @@ packages/
 
 ---
 
-## 5. Database Schema
+## 6. Database Schema
 
 Better Auth requires four tables, defined in [packages/db/src/schema/auth.ts](../packages/db/src/schema/auth.ts):
 
@@ -214,7 +413,7 @@ export type UserRole = "user" | "admin";
 
 ---
 
-## 6. Server Configuration
+## 7. Server Configuration
 
 Located at [packages/portal/src/lib/auth/index.tsx](../packages/portal/src/lib/auth/index.tsx).
 
@@ -224,10 +423,11 @@ Configures:
 - Email/password with verification via Resend + `EmailTemplate`
 - Google OAuth social provider
 - Session expiry (7 days) with daily refresh
+- **`nextCookies` plugin** for Server Action cookie handling
 
 ---
 
-## 7. Client Configuration
+## 8. Client Configuration
 
 | File                                                                                | Purpose                                     |
 | ----------------------------------------------------------------------------------- | ------------------------------------------- |
@@ -237,7 +437,7 @@ The client is used only for social login buttons, which require client-side Java
 
 ---
 
-## 8. Auth Components
+## 9. Auth Components
 
 Custom auth components using Server Actions for progressive enhancement (forms work without JavaScript).
 
@@ -271,17 +471,26 @@ See [sign-in-form.tsx](../packages/portal/src/components/auth/sign-in-form.tsx) 
 
 ---
 
-## 9. Route Protection
+## 10. Route Protection
 
-| File                                                     | Purpose                                          |
-| -------------------------------------------------------- | ------------------------------------------------ |
-| [proxy.ts](../packages/portal/src/proxy.ts)              | Checks session cookie, redirects unauthenticated |
-| [routes.ts](../packages/portal/src/const/routes.ts)      | Centralized route constants                      |
-| [session.ts](../packages/portal/src/lib/auth/session.ts) | `getSession()` and `requireSession()` helpers    |
+### Two-Layer Protection Strategy
+
+1. **Proxy (fast, optimistic)**: Uses `getSessionCookie()` to check cookie existence only - no DB call
+2. **Page (secure, validated)**: Uses `requireSession()` to validate session against database
+
+| File                                                     | Purpose                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------- |
+| [proxy.ts](../packages/portal/src/proxy.ts)              | Fast cookie check, optimistic redirect for unauthenticated    |
+| [session.ts](../packages/portal/src/lib/auth/session.ts) | `getSession()` and `requireSession()` with full DB validation |
+| [routes.ts](../packages/portal/src/const/routes.ts)      | Centralized route constants                                   |
+
+### Security Note
+
+The proxy only checks for cookie **existence**, not validity. Always use `requireSession()` in protected pages to validate the session against the database.
 
 ---
 
-## 10. Row Level Security (RLS)
+## 11. Row Level Security (RLS)
 
 ### Approach
 
@@ -326,7 +535,7 @@ CREATE POLICY "Users can delete own data" ON your_table
 
 ---
 
-## 11. Environment Variables
+## 12. Environment Variables
 
 ### Required for Portal
 
@@ -388,7 +597,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 
 ---
 
-## 12. Setup Checklist
+## 13. Setup Checklist
 
 ### First-Time Setup
 
@@ -419,7 +628,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 
 ---
 
-## 13. Common Patterns
+## 14. Common Patterns
 
 | Pattern                        | How                                                                        |
 | ------------------------------ | -------------------------------------------------------------------------- |
