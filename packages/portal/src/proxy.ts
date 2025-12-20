@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { AUTH_ROUTE_PREFIX, PROTECTED_ROUTE_PREFIXES, REDIRECT } from "@/const";
+import { PROTECTED_ROUTE_PREFIXES, REDIRECT } from "@/const";
 
 /**
  * Next.js 16 Proxy for route protection.
@@ -10,18 +10,13 @@ import { AUTH_ROUTE_PREFIX, PROTECTED_ROUTE_PREFIXES, REDIRECT } from "@/const";
  *
  * Security Note: getSessionCookie only checks if a cookie exists, not if it's valid.
  * Always validate sessions server-side in protected pages/actions.
+ *
+ * Note: We intentionally don't redirect authenticated users from auth pages here
+ * because the cookie check is optimistic. A stale cookie would cause a redirect loop.
+ * Auth pages should use getSession() to validate and redirect if needed.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Check for session cookie (fast, no DB call)
-  const sessionCookie = getSessionCookie(request);
-
-  // Redirect authenticated users away from auth pages
-  const isAuthRoute = pathname.startsWith(AUTH_ROUTE_PREFIX);
-  if (isAuthRoute && sessionCookie) {
-    return NextResponse.redirect(new URL(REDIRECT.AFTER_SIGN_IN, request.url));
-  }
 
   // Check if it's a protected route
   const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some(
@@ -31,6 +26,9 @@ export async function proxy(request: NextRequest) {
   if (!isProtectedRoute) {
     return NextResponse.next();
   }
+
+  // Check for session cookie (fast, no DB call)
+  const sessionCookie = getSessionCookie(request);
 
   // Redirect to sign-in if no session cookie
   if (!sessionCookie) {

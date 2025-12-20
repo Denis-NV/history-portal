@@ -116,6 +116,7 @@ export async function signUpAction(
         name: result.data.name,
         email: result.data.email,
         password: result.data.password,
+        callbackURL: AUTH_ROUTES.SIGN_IN,
       },
       headers: await headers(),
     });

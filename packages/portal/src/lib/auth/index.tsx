@@ -120,6 +120,7 @@ export const auth = betterAuth({
       });
     },
     sendOnSignUp: true,
+    autoSignInAfterVerification: false,
   },
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -28,9 +28,6 @@ export const PROTECTED_ROUTE_PREFIXES = [
   PROTECTED_ROUTES.ACCOUNT,
 ] as const;
 
-// Auth route prefix for redirect logic
-export const AUTH_ROUTE_PREFIX = "/auth" as const;
-
 // Default redirects
 export const REDIRECT = {
   AFTER_SIGN_IN: PROTECTED_ROUTES.TIMELINE,

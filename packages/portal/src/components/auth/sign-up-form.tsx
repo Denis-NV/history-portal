@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -23,21 +22,39 @@ import { AUTH_ROUTES, REDIRECT } from "@/const";
 const initialState: SignUpState = {};
 
 export function SignUpForm() {
-  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     signUpAction,
     initialState
   );
 
-  // Redirect to sign-in after successful sign-up
-  useEffect(() => {
-    if (state.success) {
-      const timeout = setTimeout(() => {
-        router.push(AUTH_ROUTES.SIGN_IN);
-      }, 3000);
-      return () => clearTimeout(timeout);
-    }
-  }, [state.success, router]);
+  // Show success message after sign-up
+  if (state.success) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Check your email</CardTitle>
+          <CardDescription>
+            We&apos;ve sent you a verification link
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-center text-sm text-muted-foreground">
+            Please check your inbox and click the verification link to activate
+            your account.
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Already verified?{" "}
+            <Link
+              href={AUTH_ROUTES.SIGN_IN}
+              className="text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md">
@@ -50,14 +67,6 @@ export function SignUpForm() {
           {state.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {state.error}
-            </div>
-          )}
-          {state.success && (
-            <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-600">
-              {state.success}
-              <p className="mt-1 text-xs text-green-600/80">
-                Redirecting to sign in...
-              </p>
             </div>
           )}
 
