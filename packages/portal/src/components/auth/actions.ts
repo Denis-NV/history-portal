@@ -303,3 +303,15 @@ export async function resetPasswordAction(
     };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sign Out Action
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function signOutAction(): Promise<void> {
+  await auth.api.signOut({
+    headers: await headers(),
+  });
+
+  redirect(REDIRECT.AFTER_SIGN_OUT);
+}
