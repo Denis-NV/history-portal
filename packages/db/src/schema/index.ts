@@ -21,3 +21,6 @@
 
 // Auth schema (Better Auth)
 export * from "./auth";
+
+// Cards schema (cards, layers, junctions)
+export * from "./cards";
