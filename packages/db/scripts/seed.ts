@@ -162,13 +162,31 @@ async function runSeed() {
           title: f.loremIpsum({ sentencesCount: 1 }),
           summary: f.loremIpsum({ sentencesCount: 1 }),
           startYear: f.int({ minValue: -3000, maxValue: 2020 }),
-          // Leave optional fields null for variety
-          startMonth: f.default({ defaultValue: null }),
-          startDay: f.default({ defaultValue: null }),
-          endYear: f.default({ defaultValue: null }),
-          endMonth: f.default({ defaultValue: null }),
-          endDay: f.default({ defaultValue: null }),
-          article: f.default({ defaultValue: null }),
+          // Optional fields: weighted random with ~70% null
+          startMonth: f.weightedRandom([
+            { weight: 0.7, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.3, value: f.int({ minValue: 1, maxValue: 12 }) },
+          ]),
+          startDay: f.weightedRandom([
+            { weight: 0.7, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.3, value: f.int({ minValue: 1, maxValue: 28 }) },
+          ]),
+          endYear: f.weightedRandom([
+            { weight: 0.6, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.4, value: f.int({ minValue: -2000, maxValue: 2020 }) },
+          ]),
+          endMonth: f.weightedRandom([
+            { weight: 0.7, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.3, value: f.int({ minValue: 1, maxValue: 12 }) },
+          ]),
+          endDay: f.weightedRandom([
+            { weight: 0.7, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.3, value: f.int({ minValue: 1, maxValue: 28 }) },
+          ]),
+          article: f.weightedRandom([
+            { weight: 0.5, value: f.default({ defaultValue: undefined }) },
+            { weight: 0.5, value: f.loremIpsum({ sentencesCount: 5 }) },
+          ]),
         },
       },
     }));
@@ -203,12 +221,12 @@ async function runSeed() {
     const userLayerValues = [
       // JSON user owns layers 0 and 1
       { userId: testUserId, layerId: allLayers[0].id, role: "owner" as const },
-      { userId: testUserId, layerId: allLayers[1].id, role: "owner" as const },
+      { userId: testUserId, layerId: allLayers[1].id, role: "guest" as const },
       // Random user is guest on layer 1, owner of layer 2
       {
         userId: randomUserId,
         layerId: allLayers[1].id,
-        role: "guest" as const,
+        role: "editor" as const,
       },
       {
         userId: randomUserId,
