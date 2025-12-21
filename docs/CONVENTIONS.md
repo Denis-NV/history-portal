@@ -57,9 +57,32 @@ export const InteractiveButton = () => {
 };
 ```
 
-### Props Interface
+### TypeScript Types
 
-Define props using a `Props` type or interface directly above the component:
+Always use **`type`** over `interface` for consistency:
+
+```tsx
+// ✅ Correct
+type Props = {
+  title: string;
+  isActive?: boolean;
+};
+
+type ApiResponse = {
+  data: User[];
+  total: number;
+};
+
+// ❌ Incorrect
+interface Props {
+  title: string;
+  isActive?: boolean;
+}
+```
+
+### Props Type
+
+Define props using a `Props` type directly above the component:
 
 ```tsx
 type Props = {
