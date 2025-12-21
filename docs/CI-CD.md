@@ -22,35 +22,35 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        CI/CD Pipeline                                │
+│                        CI/CD Pipeline                               │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   Pull Request to main                    Push to main               │
-│          │                                      │                    │
-│          ▼                                      ▼                    │
+│                                                                     │
+│   Pull Request to main                    Push to main              │
+│          │                                      │                   │
+│          ▼                                      ▼                   │
 │   ┌─────────────┐                        ┌─────────────┐            │
 │   │   Verify    │                        │   Verify    │            │
 │   │  (Lint)     │                        │  (Lint)     │            │
 │   └─────────────┘                        └──────┬──────┘            │
-│          │                                      │                    │
-│          ▼                                      ▼                    │
+│          │                                      │                   │
+│          ▼                                      ▼                   │
 │   ┌─────────────┐                        ┌─────────────┐            │
 │   │  Required   │                        │  Migrate    │            │
-│   │  to Merge   │                        │  (Schema)   │            │
+│   │  to Merge   │                        │  + Seed     │            │
 │   └─────────────┘                        └──────┬──────┘            │
-│                                                 │                    │
-│                                                 ▼                    │
+│                                                 │                   │
+│                                                 ▼                   │
 │                                          ┌─────────────┐            │
 │                                          │   Deploy    │            │
 │                                          │  (Staging)  │            │
 │                                          └──────┬──────┘            │
-│                                                 │                    │
-│                                                 ▼ (on failure)       │
+│                                                 │                   │
+│                                                 ▼ (on failure)      │
 │                                          ┌─────────────┐            │
 │                                          │  Rollback   │            │
 │                                          │  (PITR)     │            │
 │                                          └─────────────┘            │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,13 +104,15 @@
 **Jobs:**
 
 1. **Verify** - Run lint checks (reuses verify workflow)
-2. **Migrate** - Run database schema migrations and RLS policies
+2. **Migrate** - Run database schema migrations, RLS policies, and seed data
 3. **Deploy** - Build Docker image and deploy to Cloud Run via Pulumi
 4. **Rollback** (on deploy failure) - Restore database to pre-migration state using Neon PITR
 
-**Migration Strategy:**
+**Migration & Seeding Strategy:**
 
 - Migrations run **before** deployment to ensure schema is ready
+- Seeding runs **after** migrations to populate initial data
+- Seeding is idempotent (uses `ON CONFLICT DO NOTHING`)
 - Uses Neon's Point-in-Time Recovery (PITR) for rollback capability
 - Pre-migration timestamp is recorded for potential rollback
 - If deployment fails, database is restored to pre-migration state

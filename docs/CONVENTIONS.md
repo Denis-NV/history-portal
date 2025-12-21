@@ -11,6 +11,7 @@
 1. [React Components](#1-react-components)
 2. [File & Folder Structure](#2-file--folder-structure)
 3. [Naming Conventions](#3-naming-conventions)
+4. [Database Seeding](#4-database-seeding)
 
 ---
 
@@ -48,7 +49,7 @@ export const StaticContent = () => {
 };
 
 // Client Component - add directive at top of file
-"use client";
+("use client");
 
 export const InteractiveButton = () => {
   const [count, setCount] = useState(0);
@@ -77,11 +78,11 @@ export const Card = ({ title, isActive = false }: Props) => {
 
 ### Component Organization
 
-| Component Type | Location | Example |
-| -------------- | -------- | ------- |
-| **Common/shared components** | `src/components/common/<component-name>/` | `src/components/common/header/` |
-| **Feature-specific components** | `src/components/<feature>/` | `src/components/auth/` |
-| **Page-specific components** | `src/app/<route>/_components/` | `src/app/timeline/_components/` |
+| Component Type                  | Location                                  | Example                         |
+| ------------------------------- | ----------------------------------------- | ------------------------------- |
+| **Common/shared components**    | `src/components/common/<component-name>/` | `src/components/common/header/` |
+| **Feature-specific components** | `src/components/<feature>/`               | `src/components/auth/`          |
+| **Page-specific components**    | `src/app/<route>/_components/`            | `src/app/timeline/_components/` |
 
 ### Folder Structure for Components
 
@@ -121,22 +122,22 @@ import { SignOutButton } from "@/components/common/sign-out-button";
 
 ### Files and Folders
 
-| Element | Convention | Example |
-| ------- | ---------- | ------- |
-| **Folders** | lowercase with hyphens | `sign-out-button/`, `user-profile/` |
-| **Component files** | lowercase with hyphens | `sign-out-button.tsx`, `header.tsx` |
-| **Test files** | component name + `.test.tsx` | `header.test.tsx` |
-| **Index files** | always `index.ts` | `index.ts` |
+| Element             | Convention                   | Example                             |
+| ------------------- | ---------------------------- | ----------------------------------- |
+| **Folders**         | lowercase with hyphens       | `sign-out-button/`, `user-profile/` |
+| **Component files** | lowercase with hyphens       | `sign-out-button.tsx`, `header.tsx` |
+| **Test files**      | component name + `.test.tsx` | `header.test.tsx`                   |
+| **Index files**     | always `index.ts`            | `index.ts`                          |
 
 ### Code
 
-| Element | Convention | Example |
-| ------- | ---------- | ------- |
-| **Component functions** | PascalCase | `Header`, `SignOutButton`, `UserProfile` |
-| **Props types** | `Props` or `<Component>Props` | `Props`, `HeaderProps` |
-| **Hooks** | camelCase with `use` prefix | `useSession`, `useAuth` |
-| **Utilities** | camelCase | `formatDate`, `parseToken` |
-| **Constants** | SCREAMING_SNAKE_CASE | `API_URL`, `MAX_RETRIES` |
+| Element                 | Convention                    | Example                                  |
+| ----------------------- | ----------------------------- | ---------------------------------------- |
+| **Component functions** | PascalCase                    | `Header`, `SignOutButton`, `UserProfile` |
+| **Props types**         | `Props` or `<Component>Props` | `Props`, `HeaderProps`                   |
+| **Hooks**               | camelCase with `use` prefix   | `useSession`, `useAuth`                  |
+| **Utilities**           | camelCase                     | `formatDate`, `parseToken`               |
+| **Constants**           | SCREAMING_SNAKE_CASE          | `API_URL`, `MAX_RETRIES`                 |
 
 ### Examples
 
@@ -147,6 +148,94 @@ src/components/common/user-avatar/user-avatar.tsx
 # Component naming inside the file
 export const UserAvatar = ({ src, alt }: Props) => { ... };
 ```
+
+---
+
+## 4. Database Seeding
+
+### Overview
+
+We use **Drizzle ORM** directly for database seeding via a custom script at `packages/db/scripts/seed.ts`. Run with:
+
+```bash
+pnpm db:seed
+```
+
+### Two Approaches: Exact vs Random Data
+
+| Approach        | Use Case                           | Tool                                          |
+| --------------- | ---------------------------------- | --------------------------------------------- |
+| **Exact data**  | Known test users, specific records | Standard Drizzle inserts with JSON files      |
+| **Random data** | Bulk test data, load testing       | `drizzle-seed` package with `seed()` function |
+
+**Current implementation:** We use the **exact data approach** with JSON files for maintainability and predictable test data.
+
+### Seed Data Files
+
+Seed data lives in `packages/db/seed/` as JSON files:
+
+```
+packages/db/seed/
+├── users.json      # User records
+└── accounts.json   # Account records (linked to users)
+```
+
+#### Example: users.json
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Test User",
+    "email": "test@example.com",
+    "emailVerified": true,
+    "role": "user",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+]
+```
+
+### Why JSON Files?
+
+1. **Maintainable** — Edit data without touching TypeScript code
+2. **Reviewable** — Easy to see exactly what gets seeded in PRs
+3. **Portable** — Same data format can be used for imports/exports
+4. **Type-safe** — TypeScript still validates the structure at runtime
+
+### Idempotency
+
+The seed script uses `onConflictDoNothing()` to make seeding idempotent:
+
+```typescript
+await db.insert(user).values(users).onConflictDoNothing();
+```
+
+This means:
+
+- **Safe to run multiple times** — won't error on existing data
+- **Won't update existing records** — use migrations for that
+- **CI/CD friendly** — runs after every migration in staging
+
+### When to Use Random Data
+
+For future load testing or bulk data generation, use `drizzle-seed`:
+
+```typescript
+import { seed } from "drizzle-seed";
+
+await seed(db, { users }).refine((f) => ({
+  users: {
+    count: 1000,
+    columns: {
+      name: f.fullName(),
+      email: f.email(),
+    },
+  },
+}));
+```
+
+> **Note:** `drizzle-seed` is installed but not currently used. The exact data approach is preferred for predictable test environments.
 
 ---
 
