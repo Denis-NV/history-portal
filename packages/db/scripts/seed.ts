@@ -21,8 +21,10 @@ config({ path: resolve(import.meta.dirname, "../../portal/.env") });
 const { neon } = await import("@neondatabase/serverless");
 const { drizzle: drizzleHttp } = await import("drizzle-orm/neon-http");
 const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
+const { eq } = await import("drizzle-orm");
 const { Pool: PgPool } = await import("pg");
 const { readFileSync } = await import("node:fs");
+const { seed, reset } = await import("drizzle-seed");
 
 const schema = await import("../src/schema");
 const { connectionString, isLocalDocker, isNeon } = await import(
@@ -105,6 +107,123 @@ async function runSeed() {
         .onConflictDoNothing();
     }
     console.log("   ✅ Accounts seeded");
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Generate random seed data with drizzle-seed
+    // ─────────────────────────────────────────────────────────────────────────
+
+    console.log("📝 Generating random seed data with drizzle-seed...");
+
+    // Get user ID from JSON for linking userLayer
+    const testUserId = seedUsers[0].id;
+
+    // Fixed ID for the random test user (allows idempotent seeding)
+    const randomUserId = "11111111-1111-1111-1111-111111111111";
+
+    // Delete the random user if it exists (for clean re-seeding)
+    await db.delete(schema.user).where(eq(schema.user.id, randomUserId));
+
+    // Reset tables we're generating (not the JSON user/account)
+    await reset(db, {
+      layer: schema.layer,
+      card: schema.card,
+      cardLayer: schema.cardLayer,
+      userLayer: schema.userLayer,
+    });
+
+    // Create the random test user with manual insert
+    await db
+      .insert(schema.user)
+      .values({
+        id: randomUserId,
+        name: "Random Test User",
+        email: "random@example.com",
+        emailVerified: true,
+        role: "user",
+      })
+      .onConflictDoNothing();
+    console.log("   ✅ Random user seeded (1)");
+
+    await seed(db, {
+      layer: schema.layer,
+      card: schema.card,
+    }).refine((f) => ({
+      layer: {
+        count: 3,
+        columns: {
+          title: f.valuesFromArray({
+            values: ["Ancient Civilizations", "Medieval History", "World Wars"],
+          }),
+        },
+      },
+      card: {
+        count: 20,
+        columns: {
+          title: f.loremIpsum({ sentencesCount: 1 }),
+          summary: f.loremIpsum({ sentencesCount: 1 }),
+          startYear: f.int({ minValue: -3000, maxValue: 2020 }),
+          // Leave optional fields null for variety
+          startMonth: f.default({ defaultValue: null }),
+          startDay: f.default({ defaultValue: null }),
+          endYear: f.default({ defaultValue: null }),
+          endMonth: f.default({ defaultValue: null }),
+          endDay: f.default({ defaultValue: null }),
+          article: f.default({ defaultValue: null }),
+        },
+      },
+    }));
+
+    console.log("   ✅ Layers seeded (3)");
+    console.log("   ✅ Cards seeded (20)");
+
+    // Get all cards and layers for manual relationship creation
+    const allCards = await db.select({ id: schema.card.id }).from(schema.card);
+    const allLayers = await db
+      .select({ id: schema.layer.id })
+      .from(schema.layer);
+
+    // Create card-layer relationships: assign each card to one random layer
+    const cardLayerValues = allCards.map((card, index) => ({
+      cardId: card.id,
+      layerId: allLayers[index % allLayers.length].id,
+    }));
+
+    await db
+      .insert(schema.cardLayer)
+      .values(cardLayerValues)
+      .onConflictDoNothing();
+    console.log(
+      `   ✅ Card-Layer relationships seeded (${cardLayerValues.length})`
+    );
+
+    // Seed userLayer manually for deterministic role assignment
+    // Layer 0: JSON user = owner
+    // Layer 1: JSON user = owner, Random user = guest
+    // Layer 2: Random user = owner
+    const userLayerValues = [
+      // JSON user owns layers 0 and 1
+      { userId: testUserId, layerId: allLayers[0].id, role: "owner" as const },
+      { userId: testUserId, layerId: allLayers[1].id, role: "owner" as const },
+      // Random user is guest on layer 1, owner of layer 2
+      {
+        userId: randomUserId,
+        layerId: allLayers[1].id,
+        role: "guest" as const,
+      },
+      {
+        userId: randomUserId,
+        layerId: allLayers[2].id,
+        role: "owner" as const,
+      },
+    ];
+
+    await db
+      .insert(schema.userLayer)
+      .values(userLayerValues)
+      .onConflictDoNothing();
+    console.log(
+      `   ✅ User-Layer relationships seeded (${userLayerValues.length})`
+    );
 
     console.log("🎉 Database seeding complete!");
   } catch (error) {

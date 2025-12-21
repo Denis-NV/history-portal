@@ -166,9 +166,13 @@ pnpm db:seed
 | Approach        | Use Case                           | Tool                                          |
 | --------------- | ---------------------------------- | --------------------------------------------- |
 | **Exact data**  | Known test users, specific records | Standard Drizzle inserts with JSON files      |
-| **Random data** | Bulk test data, load testing       | `drizzle-seed` package with `seed()` function |
+| **Random data** | Bulk test data, entities           | `drizzle-seed` package with `seed()` function |
 
-**Current implementation:** We use the **exact data approach** with JSON files for maintainability and predictable test data.
+**Current implementation:** We use a **hybrid approach**:
+
+- **JSON files** for exact user/account data (predictable test accounts)
+- **drizzle-seed** for random layers and cards (bulk content)
+- **Manual inserts** for junction tables (avoid duplicate key issues)
 
 ### Seed Data Files
 
@@ -219,23 +223,49 @@ This means:
 
 ### When to Use Random Data
 
-For future load testing or bulk data generation, use `drizzle-seed`:
+For bulk entities like cards and layers, use `drizzle-seed`:
 
 ```typescript
-import { seed } from "drizzle-seed";
+import { seed, reset } from "drizzle-seed";
 
-await seed(db, { users }).refine((f) => ({
-  users: {
-    count: 1000,
+// Reset tables before regenerating
+await reset(db, { layer: schema.layer, card: schema.card });
+
+await seed(db, { layer: schema.layer, card: schema.card }).refine((f) => ({
+  layer: {
+    count: 3,
     columns: {
-      name: f.fullName(),
-      email: f.email(),
+      title: f.valuesFromArray({
+        values: ["Ancient Civilizations", "Medieval History", "World Wars"],
+      }),
+    },
+  },
+  card: {
+    count: 20,
+    columns: {
+      title: f.loremIpsum({ sentencesCount: 1 }),
+      startYear: f.int({ minValue: -3000, maxValue: 2020 }),
     },
   },
 }));
 ```
 
-> **Note:** `drizzle-seed` is installed but not currently used. The exact data approach is preferred for predictable test environments.
+### Junction Tables
+
+For junction tables with composite primary keys (e.g., `cardLayer`, `userLayer`), **avoid drizzle-seed** as it can generate duplicates. Instead, generate them manually after the parent tables are seeded:
+
+```typescript
+const allCards = await db.select({ id: schema.card.id }).from(schema.card);
+const allLayers = await db.select({ id: schema.layer.id }).from(schema.layer);
+
+// Assign each card to one layer (round-robin)
+const cardLayerValues = allCards.map((card, index) => ({
+  cardId: card.id,
+  layerId: allLayers[index % allLayers.length].id,
+}));
+
+await db.insert(schema.cardLayer).values(cardLayerValues).onConflictDoNothing();
+```
 
 ---
 
