@@ -20,6 +20,7 @@
     "reset:local": "tsx scripts/reset-local.ts",
     "reset:staging": "tsx scripts/reset-staging.ts",
     "setup:neon-dev": "tsx scripts/setup-dev-branch.ts",
+    "seed": "tsx scripts/seed.ts",
     "neon:auth": "neonctl auth",
     "dev": "drizzle-kit studio",
     "check-types": "tsc --noEmit"
@@ -30,6 +31,7 @@
     "better-auth": "^1.4.7",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.41.0",
+    "drizzle-seed": "^0.3.1",
     "pg": "^8.16.3"
   },
   "devDependencies": {

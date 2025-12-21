@@ -2,8 +2,8 @@
 
 > **Purpose:** This document captures all architectural decisions, technology choices, and implementation plans for a personal full-stack TypeScript web application hosted on GCP. It serves as context for AI assistants and future reference.
 
-**Last Updated:** December 15, 2025  
-**Project Status:** Phase 1 In Progress (Database ✅)
+**Last Updated:** December 21, 2025  
+**Project Status:** Phase 1 In Progress (Database ✅, Auth ✅)
 
 ---
 
@@ -90,16 +90,50 @@ history-portal/
 │   │   ├── docker-compose.yml  # Local PostgreSQL
 │   │   ├── drizzle.config.ts   # Drizzle Kit configuration
 │   │   ├── package.json
+│   │   ├── migrations/
+│   │   │   └── rls-policies.sql  # RLS functions (manual, idempotent)
+│   │   ├── seed/               # Seed data (JSON files)
+│   │   │   ├── users.json      # User seed data
+│   │   │   └── accounts.json   # Account seed data
+│   │   ├── scripts/            # Database scripts
+│   │   │   ├── seed.ts         # Seed script
+│   │   │   ├── reset-local.ts  # Reset local database
+│   │   │   └── ...             # Other scripts
 │   │   └── src/
 │   │       ├── index.ts        # Re-exports (client, schema, config)
 │   │       ├── client.ts       # Drizzle clients (HTTP + WebSocket)
 │   │       ├── config.ts       # Connection string configuration
+│   │       ├── rls.ts          # withRLS() and withAdminAccess() helpers
 │   │       └── schema/
-│   │           └── index.ts    # Database schema (Drizzle ORM)
+│   │           ├── index.ts    # Schema re-exports
+│   │           └── auth.ts     # Better Auth tables (user, session, account, verification)
 │   ├── portal/                 # Next.js web application
 │   │   ├── src/
-│   │   │   └── app/            # App Router
-│   │   │       └── api/health/db/  # Database health endpoint
+│   │   │   ├── proxy.ts        # Route protection (cookie check)
+│   │   │   ├── app/            # App Router
+│   │   │   │   ├── api/
+│   │   │   │   │   ├── auth/[...all]/  # Better Auth API handler
+│   │   │   │   │   └── health/db/      # Database health endpoint
+│   │   │   │   ├── auth/       # Auth pages
+│   │   │   │   │   ├── sign-in/
+│   │   │   │   │   ├── sign-up/
+│   │   │   │   │   ├── forgot-password/
+│   │   │   │   │   └── reset-password/
+│   │   │   │   └── timeline/   # Protected route example
+│   │   │   ├── components/
+│   │   │   │   └── auth/       # Auth form components
+│   │   │   │       ├── actions.ts      # Server Actions
+│   │   │   │       ├── schemas.ts      # Zod validation schemas
+│   │   │   │       ├── sign-in-form.tsx
+│   │   │   │       ├── sign-up-form.tsx
+│   │   │   │       ├── forgot-password-form.tsx
+│   │   │   │       └── reset-password-form.tsx
+│   │   │   └── lib/
+│   │   │       └── auth/       # Auth configuration
+│   │   │           ├── index.tsx       # Better Auth server config
+│   │   │           ├── client.ts       # Client-side auth (social login)
+│   │   │           ├── session.ts      # getSession(), requireSession()
+│   │   │           └── email-template.tsx  # Custom email template
 │   │   ├── Dockerfile          # Multi-stage build (includes db package)
 │   │   ├── package.json
 │   │   └── next.config.ts
@@ -141,6 +175,7 @@ pnpm db:logs                 # View database logs
 pnpm db:studio               # Open Drizzle Studio
 pnpm db:generate             # Generate migration from schema changes
 pnpm db:migrate              # Apply migrations
+pnpm db:seed                 # Seed the database
 pnpm db:push                 # Push schema directly (dev only)
 
 # Infrastructure (run from root)

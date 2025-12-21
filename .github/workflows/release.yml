@@ -109,6 +109,11 @@ jobs:
         if: steps.db.outputs.skip_migrations != 'true'
         run: pnpm db:migrate:rls
 
+      # Seed the database
+      - name: Seed database
+        if: steps.db.outputs.skip_migrations != 'true'
+        run: pnpm db:seed
+
   # Deploy to staging after migrations pass
   deploy:
     name: Deploy to Staging

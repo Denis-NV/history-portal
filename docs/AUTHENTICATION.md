@@ -334,54 +334,24 @@ The proxy catches 99% of unauthenticated requests without a database call. The p
 
 ## 5. Project Structure
 
-```
-packages/
-├── db/
-│   ├── src/
-│   │   ├── schema/
-│   │   │   ├── index.ts          # Re-exports all schemas
-│   │   │   └── auth.ts           # Better Auth tables (user, session, account, verification)
-│   │   ├── rls.ts                # withRLS() and withAdminAccess() helpers
-│   │   └── ...
-│   ├── migrations/
-│   │   ├── 0000_*.sql            # Initial migration (Drizzle-generated)
-│   │   └── rls-policies.sql      # RLS functions (manual, idempotent)
-│   └── scripts/
-│       ├── migrate-rls.ts        # Run RLS migration
-│       ├── reset-local.ts        # Reset local Docker database
-│       └── reset-staging.ts      # Reset Neon staging database
-│
-└── portal/
-    └── src/
-        ├── lib/
-        │   └── auth/
-        │       ├── index.tsx         # Better Auth server config
-        │       ├── client.ts         # Client-side auth config (social login)
-        │       ├── session.ts        # getSession(), requireSession() helpers
-        │       └── email-template.tsx # Custom React email template
-        ├── app/
-        │   ├── api/
-        │   │   └── auth/
-        │   │       └── [...all]/
-        │   │           └── route.ts   # Better Auth API handler
-        │   └── auth/
-        │       ├── sign-in/page.tsx       # Sign in page
-        │       ├── sign-up/page.tsx       # Sign up page
-        │       ├── forgot-password/page.tsx   # Forgot password page
-        │       └── reset-password/page.tsx    # Reset password page
-        ├── components/
-        │   └── auth/
-        │       ├── index.ts              # Re-exports all auth components
-        │       ├── actions.ts            # Server Actions for form handling
-        │       ├── schemas.ts            # Zod 4 validation schemas
-        │       ├── sign-in-form.tsx      # Sign in form component
-        │       ├── sign-up-form.tsx      # Sign up form component
-        │       ├── forgot-password-form.tsx  # Forgot password form
-        │       └── reset-password-form.tsx   # Reset password form
-        ├── proxy.ts                   # Route protection (Next.js 16+)
-        └── const/
-            └── routes.ts              # Centralized route constants
-```
+For the complete project structure, see [ARCHITECTURE.md - Directory Structure](./ARCHITECTURE.md#directory-structure).
+
+### Auth-Specific Files
+
+| Path                                                 | Purpose                                                   |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `packages/db/src/schema/auth.ts`                     | Better Auth tables (user, session, account, verification) |
+| `packages/db/src/rls.ts`                             | `withRLS()` and `withAdminAccess()` helpers               |
+| `packages/db/migrations/rls-policies.sql`            | RLS functions (manual, idempotent)                        |
+| `packages/portal/src/lib/auth/index.tsx`             | Better Auth server config                                 |
+| `packages/portal/src/lib/auth/client.ts`             | Client-side auth config (social login)                    |
+| `packages/portal/src/lib/auth/session.ts`            | `getSession()`, `requireSession()` helpers                |
+| `packages/portal/src/lib/auth/email-template.tsx`    | Custom React email template                               |
+| `packages/portal/src/app/api/auth/[...all]/route.ts` | Better Auth API handler                                   |
+| `packages/portal/src/app/auth/*`                     | Auth pages (sign-in, sign-up, etc.)                       |
+| `packages/portal/src/components/auth/*`              | Auth form components and actions                          |
+| `packages/portal/src/proxy.ts`                       | Route protection (Next.js 16+)                            |
+| `packages/portal/src/const/routes.ts`                | Centralized route constants                               |
 
 ---
 

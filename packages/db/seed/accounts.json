@@ -1,0 +1,17 @@
+[
+  {
+    "id": "fa6228b4-9527-4a5f-a998-67ce57124ff2",
+    "userId": "3f8748b8-f0b2-4a4b-b3bd-431b3330059e",
+    "accountId": "3f8748b8-f0b2-4a4b-b3bd-431b3330059e",
+    "providerId": "credential",
+    "accessToken": null,
+    "refreshToken": null,
+    "accessTokenExpiresAt": null,
+    "refreshTokenExpiresAt": null,
+    "scope": null,
+    "idToken": null,
+    "password": "5c85230d416a699dac2ecc1857c672cf:4e944a53e1f01b417ea5b373549d8bc2c155bf1e4e7032a11bbcc619c794a5dda7bb17ee7292efa61924a59d8fb24144d1b18dd3781f06dda7c9220732e209b1",
+    "createdAt": "2025-12-21T11:44:18.702Z",
+    "updatedAt": "2025-12-21T11:44:18.702Z"
+  }
+]

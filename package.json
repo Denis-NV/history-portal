@@ -16,6 +16,7 @@
     "db:reset:local": "pnpm -F @history-portal/db reset:local",
     "db:reset:staging": "pnpm -F @history-portal/db reset:staging",
     "db:setup:neon-dev": "pnpm -F @history-portal/db setup:neon-dev",
+    "db:seed": "pnpm -F @history-portal/db seed",
     "db:studio": "pnpm -F @history-portal/db dev",
     "pulumi": "pulumi -C infra",
     "infra:preview:staging": "pulumi -C infra preview --stack staging",
