@@ -611,12 +611,35 @@ These are automatically passed to Cloud Run as environment variables during depl
 
 #### Google OAuth
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create or select a project
-3. Navigate to APIs & Services → Credentials
-4. Create OAuth 2.0 Client ID
-5. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-6. Copy Client ID and Client Secret to `.env.local`
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and select your project
+2. Navigate to **Google Auth Platform** (or APIs & Services → OAuth consent screen)
+3. **Configure OAuth Consent Screen:**
+   - Select **External** → Next
+   - Fill in App name, support email, developer email
+   - Save and continue through Scopes (add `email`, `profile`)
+   - Go to **Audience** → Add your email as a test user
+4. **Create OAuth Credentials:**
+   - Go to **Clients** → **+ Create Client**
+   - Application type: **Web application**
+   - Name: `History Portal Web Client`
+   - **Authorized JavaScript origins:**
+     ```
+     http://localhost:3000
+     https://portal-staging-xxx.run.app  (your staging URL)
+     ```
+   - **Authorized redirect URIs:**
+     ```
+     http://localhost:3000/api/auth/callback/google
+     https://portal-staging-xxx.run.app/api/auth/callback/google
+     ```
+   - Click **Create**
+5. **Configure environments:**
+   - Local: Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env.local`
+   - Staging: `pulumi -C infra config set --secret googleClientId "..." --stack staging`
+   - Staging: `pulumi -C infra config set --secret googleClientSecret "..." --stack staging`
+6. Redeploy staging: `pnpm infra:up:staging`
+
+> **Note:** While in "Testing" mode, only emails added to the test users list can sign in. Click "Publish app" in the Audience section when ready for public access.
 
 #### Resend (Email)
 
