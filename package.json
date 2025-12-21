@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@pulumi/pulumi": "^3",
-    "turbo": "^2.6.3"
+    "turbo": "^2.7.1"
   },
   "packageManager": "pnpm@10.25.0"
 }
