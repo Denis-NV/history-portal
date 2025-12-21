@@ -11,10 +11,7 @@ import {
 } from "@history-portal/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-
-type GetCardsRequest = {
-  layerIds?: string[];
-};
+import type { CardsRequest, CardsResponse } from "./types";
 
 /**
  * Get all cards accessible to the current user
@@ -34,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: GetCardsRequest = await request.json().catch(() => ({}));
+    const body: CardsRequest = await request.json().catch(() => ({}));
     const layerIds = body.layerIds?.filter(Boolean);
 
     const cards = await withRLS(session.user.id, async (tx) => {
@@ -72,7 +69,7 @@ export async function POST(request: NextRequest) {
         .where(whereCondition);
     });
 
-    return NextResponse.json({ cards });
+    return NextResponse.json({ cards } satisfies CardsResponse);
   } catch (error) {
     console.error("Failed to fetch cards:", error);
 

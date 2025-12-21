@@ -104,3 +104,13 @@ export const userLayer = pgTable(
   },
   (table) => [primaryKey({ columns: [table.userId, table.layerId] })]
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inferred Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Card = typeof card.$inferSelect;
+export type Layer = typeof layer.$inferSelect;
+export type CardLayer = typeof cardLayer.$inferSelect;
+export type UserLayer = typeof userLayer.$inferSelect;
+export type LayerRole = UserLayer["role"];

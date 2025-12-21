@@ -10,36 +10,26 @@ import {
   TableRow,
 } from "@/components/shadcn/table";
 import { formatDate } from "@/lib/utils";
+import type { LayerRole } from "@history-portal/db";
+import type {
+  CardWithLayer,
+  CardsRequest,
+  CardsResponse,
+} from "@/app/api/cards/types";
 
-type CardData = {
-  id: string;
-  title: string;
-  summary: string | null;
-  startYear: number;
-  startMonth: number | null;
-  startDay: number | null;
-  endYear: number | null;
-  endMonth: number | null;
-  endDay: number | null;
-  createdAt: string;
-  layerId: string;
-  layerTitle: string;
-  role: "owner" | "editor" | "guest";
-};
-
-type CardsTableProps = {
+type Props = {
   layerIds: string[];
 };
 
 /**
  * Formats role with visual styling
  */
-function formatRole(role: "owner" | "editor" | "guest"): string {
+const formatRole = (role: LayerRole): string => {
   return role.charAt(0).toUpperCase() + role.slice(1);
-}
+};
 
-export function CardsTable({ layerIds }: CardsTableProps) {
-  const [cards, setCards] = useState<CardData[]>([]);
+export const CardsTable = ({ layerIds }: Props) => {
+  const [cards, setCards] = useState<CardWithLayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,19 +39,21 @@ export function CardsTable({ layerIds }: CardsTableProps) {
       setError(null);
 
       try {
+        const requestBody: CardsRequest = {
+          layerIds: layerIds.length > 0 ? layerIds : undefined,
+        };
+
         const response = await fetch("/api/cards", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            layerIds: layerIds.length > 0 ? layerIds : undefined,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
           throw new Error("Failed to fetch cards");
         }
 
-        const data = await response.json();
+        const data: CardsResponse = await response.json();
         setCards(data.cards);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -143,4 +135,4 @@ export function CardsTable({ layerIds }: CardsTableProps) {
       </Table>
     </div>
   );
-}
+};

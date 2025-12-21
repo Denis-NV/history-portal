@@ -1,6 +1,7 @@
 import { layer, withRLS } from "@history-portal/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import type { LayersResponse } from "./types";
 
 /**
  * Get all layers accessible to the current user
@@ -21,7 +22,7 @@ export async function GET() {
       return tx.select().from(layer);
     });
 
-    return NextResponse.json({ layers });
+    return NextResponse.json({ layers } satisfies LayersResponse);
   } catch (error) {
     console.error("Failed to fetch layers:", error);
 

@@ -9,11 +9,8 @@ import {
   PopoverTrigger,
 } from "@/components/shadcn/popover";
 import { cn } from "@/lib/utils";
-
-type Layer = {
-  id: string;
-  title: string;
-};
+import type { Layer } from "@history-portal/db";
+import type { LayersResponse } from "@/app/api/layers/types";
 
 type Props = {
   selectedIds: string[];
@@ -31,7 +28,7 @@ export const LayerSelector = ({ selectedIds, onSelectionChange }: Props) => {
       try {
         const response = await fetch("/api/layers");
         if (!response.ok) throw new Error("Failed to fetch layers");
-        const data = await response.json();
+        const data: LayersResponse = await response.json();
         setLayers(data.layers);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -56,13 +53,11 @@ export const LayerSelector = ({ selectedIds, onSelectionChange }: Props) => {
     selectedCount === 0
       ? "Select layers..."
       : selectedCount === 1
-        ? layers.find((l) => l.id === selectedIds[0])?.title ?? "1 layer"
+        ? (layers.find((l) => l.id === selectedIds[0])?.title ?? "1 layer")
         : `${selectedCount} layers selected`;
 
   if (error) {
-    return (
-      <div className="text-sm text-destructive">Error loading layers</div>
-    );
+    return <div className="text-sm text-destructive">Error loading layers</div>;
   }
 
   return (

@@ -11,7 +11,8 @@
 1. [React Components](#1-react-components)
 2. [File & Folder Structure](#2-file--folder-structure)
 3. [Naming Conventions](#3-naming-conventions)
-4. [Database Seeding](#4-database-seeding)
+4. [API Type Safety](#4-api-type-safety)
+5. [Database Seeding](#5-database-seeding)
 
 ---
 
@@ -174,7 +175,125 @@ export const UserAvatar = ({ src, alt }: Props) => { ... };
 
 ---
 
-## 4. Database Seeding
+## 4. API Type Safety
+
+### Overview
+
+We use a **hybrid approach** for type-safe API requests and responses:
+
+1. **Drizzle `.$inferSelect`** for database entity types (single source of truth)
+2. **Co-located `types.ts`** files for request/response contracts
+3. **`satisfies`** keyword in route handlers for compile-time validation
+
+### Schema Types
+
+Export inferred types from each schema file using `.$inferSelect`:
+
+```typescript
+// packages/db/src/schema/cards.ts
+export const layer = pgTable("layer", { ... });
+
+// ✅ Correct - use .$inferSelect
+export type Layer = typeof layer.$inferSelect;
+export type NewLayer = typeof layer.$inferInsert;
+
+// ❌ Incorrect - requires extra import
+import { InferSelectModel } from "drizzle-orm";
+export type Layer = InferSelectModel<typeof layer>;
+```
+
+### Co-located Route Types
+
+Each API route folder contains a `types.ts` file with request/response types:
+
+```
+src/app/api/
+├── layers/
+│   ├── route.ts      # Route handler
+│   └── types.ts      # LayersResponse
+├── cards/
+│   ├── route.ts
+│   └── types.ts      # CardsRequest, CardsResponse, CardWithLayer
+```
+
+#### Example: types.ts
+
+```typescript
+// src/app/api/cards/types.ts
+import type { Card, Layer, LayerRole } from "@history-portal/db";
+
+// Request type for POST body
+export type CardsRequest = {
+  layerIds?: string[];
+};
+
+// Composed response type using Pick for partial entities
+export type CardWithLayer = Pick<
+  Card,
+  "id" | "title" | "summary" | "startYear" | "createdAt"
+> & {
+  layerId: Layer["id"];
+  layerTitle: Layer["title"];
+  role: LayerRole;
+};
+
+export type CardsResponse = {
+  cards: CardWithLayer[];
+};
+```
+
+### Route Handlers
+
+Use `satisfies` to validate response shape at compile time:
+
+```typescript
+// src/app/api/layers/route.ts
+import type { LayersResponse } from "./types";
+
+export async function GET() {
+  const layers = await withRLS(userId, (tx) => tx.select().from(layer));
+
+  // ✅ Compile error if shape doesn't match LayersResponse
+  return NextResponse.json({ layers } satisfies LayersResponse);
+}
+```
+
+### Client Components
+
+Import types from API route files for typed fetch responses:
+
+```typescript
+// Component fetching data
+import type { Layer } from "@history-portal/db";
+import type { LayersResponse } from "@/app/api/layers/types";
+import type { CardsRequest, CardsResponse } from "@/app/api/cards/types";
+
+// Typed response
+const response = await fetch("/api/layers");
+const data: LayersResponse = await response.json();
+
+// Typed request body
+const requestBody: CardsRequest = { layerIds: ["id1", "id2"] };
+const response = await fetch("/api/cards", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(requestBody),
+});
+const data: CardsResponse = await response.json();
+```
+
+### Benefits
+
+| Benefit                     | How                                   |
+| --------------------------- | ------------------------------------- |
+| **Single source of truth**  | Types derived from Drizzle schema     |
+| **Compile-time validation** | `satisfies` catches shape mismatches  |
+| **Discoverability**         | Types co-located with routes          |
+| **Refactoring safety**      | Schema changes surface as type errors |
+
+---
+
+## 5. Database Seeding
 
 ### Overview
 
