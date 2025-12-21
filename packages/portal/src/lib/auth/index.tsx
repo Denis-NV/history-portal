@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { nextCookies } from "better-auth/next-js";
 import { Resend } from "resend";
 
 import { db, user, session, account, verification } from "@history-portal/db";
@@ -119,6 +120,7 @@ export const auth = betterAuth({
       });
     },
     sendOnSignUp: true,
+    autoSignInAfterVerification: false,
   },
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -159,6 +161,13 @@ export const auth = betterAuth({
       generateId: false,
     },
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Plugins
+  // ─────────────────────────────────────────────────────────────────────────
+  // nextCookies: Automatically sets cookies in Server Actions
+  // Must be the last plugin in the array
+  plugins: [nextCookies()],
 });
 
 // Export auth types for use in other files

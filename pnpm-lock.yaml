@@ -78,9 +78,6 @@ importers:
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
-      '@types/set-cookie-parser':
-        specifier: ^2.4.10
-        version: 2.4.10
       better-auth:
         specifier: ^1.4.7
         version: 1.4.7(drizzle-kit@0.31.8)(drizzle-orm@0.41.0(@neondatabase/serverless@0.10.4)(@opentelemetry/api@1.9.0)(@types/pg@8.16.0)(kysely@0.28.9)(pg@8.16.3)(postgres@3.4.7))(next@16.0.8(@opentelemetry/api@1.9.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(pg@8.16.3)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -108,9 +105,6 @@ importers:
       resend:
         specifier: ^6.6.0
         version: 6.6.0(@react-email/render@2.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))
-      set-cookie-parser:
-        specifier: ^2.7.2
-        version: 2.7.2
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -1641,9 +1635,6 @@ packages:
 
   '@types/semver@7.7.1':
     resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
-
-  '@types/set-cookie-parser@2.4.10':
-    resolution: {integrity: sha512-GGmQVGpQWUe5qglJozEjZV/5dyxbOOZ0LHe/lqyWssB88Y4svNfst0uqBVscdDeIKl5Jy5+aPSvy7mI9tYRguw==}
 
   '@types/shimmer@1.2.0':
     resolution: {integrity: sha512-UE7oxhQLLd9gub6JKIAhDq06T0F6FnztwMNRvYgjeQSBeMc1ZG/tA47EwfduvkuQS8apbkM/lpLpWsaCeYsXVg==}
@@ -5928,10 +5919,6 @@ snapshots:
       '@types/node': 20.19.26
 
   '@types/semver@7.7.1': {}
-
-  '@types/set-cookie-parser@2.4.10':
-    dependencies:
-      '@types/node': 20.19.26
 
   '@types/shimmer@1.2.0': {}
 

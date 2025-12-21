@@ -17,7 +17,7 @@ on:
 
 jobs:
   verify:
-    name: Lint & Test
+    name: Verify / Lint & Test
     runs-on: ubuntu-latest
 
     steps:
