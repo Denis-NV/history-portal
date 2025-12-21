@@ -470,6 +470,7 @@ The proxy only checks for cookie **existence**, not validity. Always use `requir
 ### Session Variables
 
 ```sql
+SET LOCAL ROLE app_user;  -- Switch to role without BYPASSRLS
 SET LOCAL app.user_id = '<user-uuid>';
 SET LOCAL app.is_admin = 'true';  -- Optional, for admin bypass
 ```
@@ -478,8 +479,30 @@ SET LOCAL app.is_admin = 'true';  -- Optional, for admin bypass
 
 | File                                                           | Purpose                                     |
 | -------------------------------------------------------------- | ------------------------------------------- |
-| [rls-policies.sql](../packages/db/migrations/rls-policies.sql) | PostgreSQL RLS functions                    |
+| [rls-policies.sql](../packages/db/migrations/rls-policies.sql) | PostgreSQL RLS functions and app_user role  |
 | [rls.ts](../packages/db/src/rls.ts)                            | `withRLS()` and `withAdminAccess()` helpers |
+
+### Neon BYPASSRLS Gotcha
+
+> **Important:** Neon's default `neondb_owner` role has the `BYPASSRLS` attribute, which **completely bypasses RLS** even with `FORCE ROW LEVEL SECURITY` enabled on tables.
+
+**The solution:** Create an `app_user` role without `BYPASSRLS` and switch to it within transactions:
+
+```sql
+-- In rls-policies.sql: create app_user role
+CREATE ROLE app_user NOLOGIN;
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT app_user TO neondb_owner;  -- Allow switching to this role
+```
+
+```typescript
+// In withRLS(): switch role before setting user_id
+await tx.execute(sql.raw(`SET LOCAL ROLE app_user`));
+await tx.execute(sql.raw(`SET LOCAL app.user_id = '${userId}'`));
+```
+
+This ensures RLS policies are enforced even when connecting as `neondb_owner`.
 
 ### Adding RLS to Domain Tables
 

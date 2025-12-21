@@ -1,0 +1,1 @@
+ALTER TYPE "public"."layer_role" ADD VALUE 'editor' BEFORE 'guest';
