@@ -30,7 +30,7 @@ import { user } from "./auth";
 // Enums
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const layerRoleEnum = pgEnum("layer_role", ["owner", "guest"]);
+export const layerRoleEnum = pgEnum("layer_role", ["owner", "editor", "guest"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Card Table

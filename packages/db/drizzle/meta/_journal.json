@@ -15,6 +15,13 @@
       "when": 1766327437755,
       "tag": "0001_redundant_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766331098252,
+      "tag": "0002_young_warhawk",
+      "breakpoints": true
     }
   ]
 }

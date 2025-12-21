@@ -1,17 +1,25 @@
-import { db, layer } from "@history-portal/db";
+import { layer, withRLS } from "@history-portal/db";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth/session";
 
 /**
- * Get all layers
+ * Get all layers accessible to the current user
  * GET /api/layers
  *
- * NOTE: This endpoint intentionally does NOT filter by user_id.
- * This will return ALL layers in the database, which is incorrect.
- * RLS policies will be added later to fix this security issue.
+ * Uses RLS to filter layers based on user_layer membership.
+ * Only returns layers where the user has any role (owner, editor, guest).
  */
 export async function GET() {
   try {
-    const layers = await db.select().from(layer);
+    const session = await getSession();
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const layers = await withRLS(session.user.id, async (tx) => {
+      return tx.select().from(layer);
+    });
 
     return NextResponse.json({ layers });
   } catch (error) {

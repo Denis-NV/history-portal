@@ -30,10 +30,23 @@ export async function withRLS<T>(
   userId: string,
   operation: (tx: RLSTransaction) => Promise<T>
 ): Promise<T> {
+  // Validate userId is a valid UUID to prevent SQL injection
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(userId)) {
+    throw new Error("Invalid user ID format");
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return dbPool.transaction(async (tx: any) => {
+    // Switch to app_user role which doesn't have BYPASSRLS
+    // This ensures RLS policies are enforced
+    await tx.execute(sql.raw(`SET LOCAL ROLE app_user`));
+
     // Set the user ID for RLS policies
-    await tx.execute(sql`SET LOCAL app.user_id = ${userId}`);
+    // Note: SET doesn't support parameterized queries, so we use raw SQL
+    // The UUID validation above prevents SQL injection
+    await tx.execute(sql.raw(`SET LOCAL app.user_id = '${userId}'`));
 
     return operation(tx as RLSTransaction);
   });
