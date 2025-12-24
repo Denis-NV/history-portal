@@ -5,31 +5,21 @@
  * Uses Drizzle ORM inserts with onConflictDoNothing for idempotency.
  *
  * Usage:
- *   pnpm db:seed                    # Seed using DATABASE_URL from env/.env.local
- *   DATABASE_URL=... pnpm db:seed   # Seed a specific database
+ *   pnpm seed                       # Seed using DATABASE_URL from .env.local
+ *   DATABASE_URL=... pnpm seed      # Seed a specific database
  */
 
-import { config } from "dotenv";
+import { neon } from "@neondatabase/serverless";
+import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
+import { eq } from "drizzle-orm";
+import { Pool as PgPool } from "pg";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { seed, reset } from "drizzle-seed";
 
-// Load .env.local from portal package BEFORE importing config
-// (must be sync, before any dynamic imports)
-config({ path: resolve(import.meta.dirname, "../../portal/.env.local") });
-config({ path: resolve(import.meta.dirname, "../../portal/.env") });
-
-// Dynamic imports to ensure env is loaded first
-const { neon } = await import("@neondatabase/serverless");
-const { drizzle: drizzleHttp } = await import("drizzle-orm/neon-http");
-const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
-const { eq } = await import("drizzle-orm");
-const { Pool: PgPool } = await import("pg");
-const { readFileSync } = await import("node:fs");
-const { seed, reset } = await import("drizzle-seed");
-
-const schema = await import("../src/schema");
-const { connectionString, isLocalDocker, isNeon } = await import(
-  "../src/config"
-);
+import * as schema from "../src/schema";
+import { connectionString, isLocalDocker, isNeon } from "../src/config";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Load Seed Data from JSON files

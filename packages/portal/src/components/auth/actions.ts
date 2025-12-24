@@ -219,35 +219,22 @@ export async function forgotPasswordAction(
   }
 
   try {
-    // Call the forget-password endpoint via fetch since it may not be typed in auth.api
-    const baseUrl = process.env.BETTER_AUTH_URL;
-    const response = await fetch(`${baseUrl}/api/auth/forget-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    // forgetPassword sends reset email via sendResetPassword callback in auth config
+    await auth.api.requestPasswordReset({
+      body: {
         email: result.data.email,
         redirectTo: AUTH_ROUTES.RESET_PASSWORD,
-      }),
+      },
     });
-
-    if (!response.ok) {
-      // Don't reveal whether the email exists
-    }
-
-    // Always show success to prevent email enumeration
-    return {
-      success:
-        "If an account exists with this email, you will receive a password reset link.",
-    };
   } catch {
-    // Still show success to prevent email enumeration
-    return {
-      success:
-        "If an account exists with this email, you will receive a password reset link.",
-    };
+    // Ignore errors to prevent email enumeration
   }
+
+  // Always show success to prevent email enumeration
+  return {
+    success:
+      "If an account exists with this email, you will receive a password reset link.",
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
