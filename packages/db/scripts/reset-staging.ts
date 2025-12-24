@@ -3,18 +3,19 @@
  *
  * This script:
  * 1. Gets Neon project ID from Pulumi stack outputs
- * 2. Resets the staging branch to a clean state
+ * 2. Drops and recreates the public schema (clean slate)
  * 3. Runs all migrations (Drizzle + RLS)
- * 4. Seeds the database (if seed script exists)
+ * 4. Seeds the database
  *
  * Prerequisites:
  * - Authenticated with Neon: pnpm neonctl auth
  * - Pulumi staging stack deployed
  *
- * Usage: pnpm db:reset:staging
+ * Usage: pnpm reset:staging
  */
 
 import { execSync } from "node:child_process";
+import postgres from "postgres";
 
 const STAGING_BRANCH = "main"; // Neon's default branch
 
@@ -45,30 +46,28 @@ async function resetStagingDatabase() {
   }
 
   console.log(`   Project ID: ${projectId}`);
-  console.log(`🗑️  Resetting staging branch...`);
-
-  try {
-    // Reset the staging branch (clears all data, keeps schema)
-    neonctl(
-      `branches reset ${STAGING_BRANCH} --project-id ${projectId}`
-    );
-    console.log("✅ Staging branch reset");
-  } catch (error) {
-    // Branch might not exist or other error
-    console.error("❌ Failed to reset staging branch");
-    console.error(
-      "   Make sure the staging branch exists in your Neon project"
-    );
-    console.error("   You may need to authenticate: pnpm --filter @history-portal/db exec neonctl auth");
-    process.exit(1);
-  }
 
   // Get the staging database URL
   console.log("🔗 Getting staging connection string...");
   const connectionString = neonctl(
-    `connection-string ${STAGING_BRANCH} --project-id ${projectId}`,
+    `connection-string ${STAGING_BRANCH} --project-id ${projectId} --role-name neondb_owner`,
     { encoding: "utf-8" }
   ).trim();
+
+  // Drop and recreate schemas for a clean slate
+  console.log("🗑️  Dropping all schemas...");
+  const sql = postgres(connectionString);
+  try {
+    // Drop drizzle schema (migration journal) so migrations re-run
+    await sql.unsafe(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
+    // Drop public schema (all tables)
+    await sql.unsafe(`DROP SCHEMA public CASCADE`);
+    await sql.unsafe(`CREATE SCHEMA public`);
+    await sql.unsafe(`GRANT ALL ON SCHEMA public TO PUBLIC`);
+    console.log("✅ Schema cleared");
+  } finally {
+    await sql.end();
+  }
 
   // Run migrations against staging
   console.log("🔄 Running migrations...");
@@ -78,10 +77,8 @@ async function resetStagingDatabase() {
     env: { ...process.env, DATABASE_URL: connectionString },
   });
 
-  // Run seed if it exists
-  // TODO: Add seed script when ready
-  // console.log("🌱 Seeding database...");
-  // execSync("pnpm seed", { stdio: "inherit", env: { ...process.env, DATABASE_URL: connectionString } });
+  // Note: Seeding is handled by the CI/CD pipeline
+  // To seed manually: DATABASE_URL=<staging-url> pnpm seed
 
   console.log("🎉 Staging database reset complete!");
 }

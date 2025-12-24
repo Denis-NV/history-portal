@@ -1,29 +1,16 @@
-import {
-  card,
-  cardLayer,
-  layer,
-  userLayer,
-  withRLS,
-  eq,
-  and,
-  inArray,
-  sql,
-} from "@history-portal/db";
-import { NextRequest, NextResponse } from "next/server";
+import { card, user, withRLS, eq } from "@history-portal/db";
+import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import type { CardsRequest, CardsResponse } from "./types";
+import type { CardsResponse } from "./types";
 
 /**
- * Get all cards accessible to the current user
- * POST /api/cards
+ * Get all cards for the current user
+ * GET /api/cards
  *
- * Uses RLS to filter cards based on layer access.
- * Cards are returned only if they belong to a layer the user has access to.
- *
- * Request body:
- * - layerIds: array of layer IDs to filter by (optional, defaults to all accessible layers)
+ * Returns all cards owned by the authenticated user.
+ * TODO: Add RLS policies for proper row-level security
  */
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
 
@@ -31,26 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: CardsRequest = await request.json().catch(() => ({}));
-    const layerIds = body.layerIds?.filter(Boolean);
-
     const cards = await withRLS(session.user.id, async (tx) => {
-      // Build base conditions - always filter by current user
-      const baseCondition = sql`${userLayer.userId} = current_app_user_id()`;
-
-      // Add layer filter if specific layers are requested
-      const whereCondition =
-        layerIds && layerIds.length > 0
-          ? and(baseCondition, inArray(layer.id, layerIds))
-          : baseCondition;
-
-      // Build query to get cards with their layer info and user's role
-      // RLS on layer table ensures we only see layers we have access to
-      return tx
+      const rows = await tx
         .select({
           id: card.id,
+          userId: card.userId,
           title: card.title,
           summary: card.summary,
+          article: card.article,
           startYear: card.startYear,
           startMonth: card.startMonth,
           startDay: card.startDay,
@@ -58,15 +33,12 @@ export async function POST(request: NextRequest) {
           endMonth: card.endMonth,
           endDay: card.endDay,
           createdAt: card.createdAt,
-          layerId: layer.id,
-          layerTitle: layer.title,
-          role: userLayer.role,
+          updatedAt: card.updatedAt,
+          userName: user.name,
         })
         .from(card)
-        .innerJoin(cardLayer, eq(cardLayer.cardId, card.id))
-        .innerJoin(layer, eq(layer.id, cardLayer.layerId))
-        .innerJoin(userLayer, eq(userLayer.layerId, layer.id))
-        .where(whereCondition);
+        .innerJoin(user, eq(card.userId, user.id));
+      return rows;
     });
 
     return NextResponse.json({ cards } satisfies CardsResponse);

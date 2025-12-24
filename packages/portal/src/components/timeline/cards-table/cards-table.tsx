@@ -10,26 +10,10 @@ import {
   TableRow,
 } from "@/components/shadcn/table";
 import { formatDate } from "@/lib/utils";
-import type { LayerRole } from "@history-portal/db";
-import type {
-  CardWithLayer,
-  CardsRequest,
-  CardsResponse,
-} from "@/app/api/cards/types";
+import type { CardWithUser, CardsResponse } from "@/app/api/cards/types";
 
-type Props = {
-  layerIds: string[];
-};
-
-/**
- * Formats role with visual styling
- */
-const formatRole = (role: LayerRole): string => {
-  return role.charAt(0).toUpperCase() + role.slice(1);
-};
-
-export const CardsTable = ({ layerIds }: Props) => {
-  const [cards, setCards] = useState<CardWithLayer[]>([]);
+export const CardsTable = () => {
+  const [cards, setCards] = useState<CardWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,15 +23,7 @@ export const CardsTable = ({ layerIds }: Props) => {
       setError(null);
 
       try {
-        const requestBody: CardsRequest = {
-          layerIds: layerIds.length > 0 ? layerIds : undefined,
-        };
-
-        const response = await fetch("/api/cards", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        });
+        const response = await fetch("/api/cards");
 
         if (!response.ok) {
           throw new Error("Failed to fetch cards");
@@ -63,7 +39,7 @@ export const CardsTable = ({ layerIds }: Props) => {
     }
 
     fetchCards();
-  }, [layerIds]);
+  }, []);
 
   if (isLoading) {
     return (
@@ -84,9 +60,7 @@ export const CardsTable = ({ layerIds }: Props) => {
   if (cards.length === 0) {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground">
-        {layerIds.length === 0
-          ? "Select layers to view cards"
-          : "No cards found in selected layers"}
+        No cards found. Create your first card!
       </div>
     );
   }
@@ -97,16 +71,19 @@ export const CardsTable = ({ layerIds }: Props) => {
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
+            <TableHead>Summary</TableHead>
             <TableHead>Start Date</TableHead>
             <TableHead>End Date</TableHead>
-            <TableHead>Layer</TableHead>
-            <TableHead>Role</TableHead>
+            <TableHead>User</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {cards.map((card) => (
-            <TableRow key={`${card.id}-${card.layerId}`}>
+            <TableRow key={card.id}>
               <TableCell className="font-medium">{card.title}</TableCell>
+              <TableCell className="max-w-md truncate text-muted-foreground">
+                {card.summary || "—"}
+              </TableCell>
               <TableCell>
                 {formatDate(card.startYear, card.startMonth, card.startDay)}
               </TableCell>
@@ -115,20 +92,7 @@ export const CardsTable = ({ layerIds }: Props) => {
                   ? formatDate(card.endYear, card.endMonth, card.endDay)
                   : "—"}
               </TableCell>
-              <TableCell>{card.layerTitle}</TableCell>
-              <TableCell>
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                    card.role === "owner"
-                      ? "bg-purple-100 text-purple-700"
-                      : card.role === "editor"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {formatRole(card.role)}
-                </span>
-              </TableCell>
+              <TableCell>{card.userName}</TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1765899929968,
-      "tag": "0000_sudden_iron_lad",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1766327437755,
-      "tag": "0001_redundant_black_bolt",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1766331098252,
-      "tag": "0002_young_warhawk",
+      "when": 1766594636936,
+      "tag": "0000_nebulous_tyger_tiger",
       "breakpoints": true
     }
   ]
