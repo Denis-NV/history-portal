@@ -591,12 +591,14 @@ The client auto-detects the environment and uses the appropriate driver:
 ### Environment Files
 
 ```bash
-# .env.local (local development - DO NOT COMMIT)
-# Not needed for local dev! The db package has sensible defaults.
+# packages/db/.env.local (single source of truth for DATABASE_URL)
+# Not needed for local Docker! The db package has sensible defaults.
 # Only set DATABASE_URL if you want to connect to a remote Neon database.
 
 # DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
 ```
+
+> **Note:** The portal package loads `DATABASE_URL` from `packages/db/.env.local` via `next.config.ts`.
 
 **Default Local Connection:**
 

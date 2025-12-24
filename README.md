@@ -36,7 +36,7 @@ Uses a personal branch on the staging Neon project (requires staging deployed):
 # One-time: Create your dev branch and get connection string
 pnpm db:setup:neon-dev
 
-# Add the output DATABASE_URL to packages/portal/.env.local
+# Add the output DATABASE_URL to packages/db/.env.local
 # Then reset and run migrations
 pnpm db:reset:local
 ```
@@ -89,6 +89,7 @@ history-portal/
 
 - [Architecture](docs/ARCHITECTURE.md) — Technical decisions, tech stack, and project structure
 - [Authentication](docs/AUTHENTICATION.md) — Better Auth setup, RLS, and session management
+- [Conventions](docs/CONVENTIONS.md) — Coding standards, type patterns, and API guidelines
 - [Infrastructure](docs/INFRASTRUCTURE.md) — Pulumi & GCP setup guide
 - [CI/CD](docs/CI-CD.md) — GitHub Actions workflows and setup
 

@@ -112,7 +112,7 @@ This gives you the same branching capability locally that CI/CD uses:
 pnpm db:setup:neon-dev
 
 # Output: DATABASE_URL connection string
-# Add this to packages/portal/.env.local
+# Add this to packages/db/.env.local
 ```
 
 The script:
@@ -152,15 +152,17 @@ pnpm db:reset:local
 
 ### Switching Modes
 
-To switch between modes, update `DATABASE_URL` in `packages/portal/.env.local`:
+To switch between modes, update `DATABASE_URL` in `packages/db/.env.local`:
 
 ```bash
 # Neon dev branch (default for online work)
 DATABASE_URL=postgresql://...@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
 
-# Docker (for offline/isolated work)
-DATABASE_URL=postgresql://dev:dev@db.localtest.me:5432/history_portal_local
+# Docker (for offline/isolated work) - comment out or delete the line
+# DATABASE_URL=...
 ```
+
+> **Note:** `packages/db/.env.local` is the single source of truth for `DATABASE_URL`. The portal package loads it via `next.config.ts`.
 
 ---
 

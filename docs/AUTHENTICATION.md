@@ -530,25 +530,30 @@ CREATE POLICY "Users can delete own data" ON your_table
 
 ## 12. Environment Variables
 
-### Required for Portal
+### Required Variables
 
-| Variable               | Description                               | Example                                          |
-| ---------------------- | ----------------------------------------- | ------------------------------------------------ |
-| `DATABASE_URL`         | Neon connection string                    | `postgresql://user:pass@host/db?sslmode=require` |
-| `BETTER_AUTH_SECRET`   | Secret for session signing (min 32 chars) | Generate with `openssl rand -base64 32`          |
-| `BETTER_AUTH_URL`      | Base URL for auth (email links, cookies)  | `http://localhost:3000`                          |
-| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    | `xxx.apps.googleusercontent.com`                 |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                | `GOCSPX-xxx`                                     |
-| `RESEND_API_KEY`       | Resend API key for emails                 | `re_xxx`                                         |
-| `EMAIL_FROM`           | Sender email address                      | `noreply@yourdomain.com`                         |
+| Variable               | Description                               |
+| ---------------------- | ----------------------------------------- |
+| `DATABASE_URL`         | Neon connection string                    |
+| `BETTER_AUTH_SECRET`   | Secret for session signing (min 32 chars) |
+| `BETTER_AUTH_URL`      | Base URL for auth (email links, cookies)  |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                |
+| `RESEND_API_KEY`       | Resend API key for emails                 |
+| `EMAIL_FROM`           | Sender email address                      |
 
-> **Important:** `BETTER_AUTH_URL` must be set explicitly. Better Auth cannot auto-detect the URL in async contexts (e.g., when sending verification emails from Server Actions).
+**Locations:**
+
+- `DATABASE_URL` → `packages/db/.env.local` (single source of truth)
+- All others → `packages/portal/.env.local`
+
+> **Note:** Portal loads `DATABASE_URL` from the db package via `next.config.ts`.
 
 ### Local Development
 
-For local development with Docker PostgreSQL, `DATABASE_URL` can be omitted—the db package falls back to local defaults.
+For local development with Docker PostgreSQL, `DATABASE_URL` can be omitted in `packages/db/.env.local`—it falls back to local defaults.
 
-Create `packages/portal/.env.local`:
+Create `packages/portal/.env.local` (auth-related variables only):
 
 ```bash
 # Auth
