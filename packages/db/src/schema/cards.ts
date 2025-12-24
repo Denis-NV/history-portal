@@ -1,13 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Cards Schema
 // ─────────────────────────────────────────────────────────────────────────────
-// This file defines the tables for cards and layers functionality.
+// This file defines the card table for historical events.
 //
 // Tables:
 // - card: Historical event cards with dates supporting BCE (negative years)
-// - layer: Collections/categories for organizing cards
-// - cardLayer: Junction table for card-layer many-to-many relationship
-// - userLayer: Junction table for user-layer access with role-based permissions
 //
 // Date handling:
 // - Years are stored as integers (negative for BCE, e.g., -4000 for 4000 BCE)
@@ -16,9 +13,7 @@
 
 import {
   integer,
-  pgEnum,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   uuid,
@@ -27,17 +22,14 @@ import {
 import { user } from "./auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Enums
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const layerRoleEnum = pgEnum("layer_role", ["owner", "editor", "guest"]);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Card Table
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const card = pgTable("card", {
   id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 255 }).notNull(),
   summary: varchar("summary", { length: 500 }),
   article: text("article"),
@@ -57,60 +49,7 @@ export const card = pgTable("card", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Layer Table
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const layer = pgTable("layer", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: varchar("title", { length: 255 }).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Card-Layer Junction Table
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const cardLayer = pgTable(
-  "card_layer",
-  {
-    cardId: uuid("card_id")
-      .notNull()
-      .references(() => card.id, { onDelete: "cascade" }),
-    layerId: uuid("layer_id")
-      .notNull()
-      .references(() => layer.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (table) => [primaryKey({ columns: [table.cardId, table.layerId] })]
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// User-Layer Junction Table
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const userLayer = pgTable(
-  "user_layer",
-  {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    layerId: uuid("layer_id")
-      .notNull()
-      .references(() => layer.id, { onDelete: "cascade" }),
-    role: layerRoleEnum("role").notNull().default("guest"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (table) => [primaryKey({ columns: [table.userId, table.layerId] })]
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Inferred Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Card = typeof card.$inferSelect;
-export type Layer = typeof layer.$inferSelect;
-export type CardLayer = typeof cardLayer.$inferSelect;
-export type UserLayer = typeof userLayer.$inferSelect;
-export type LayerRole = UserLayer["role"];
