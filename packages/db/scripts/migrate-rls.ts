@@ -7,20 +7,14 @@
  * Usage: pnpm migrate:rls
  */
 
-import { config } from "dotenv";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import postgres from "postgres";
+
+import { connectionString } from "../src/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Load .env.local from portal package BEFORE importing config
-config({ path: resolve(__dirname, "../../portal/.env.local") });
-config({ path: resolve(__dirname, "../../portal/.env") });
-
-// Dynamic import to ensure env is loaded first
-const { connectionString } = await import("../src/config");
-const postgres = (await import("postgres")).default;
 
 async function migrateRLS() {
   const sql = postgres(connectionString);

@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
+import { config } from "dotenv";
 import { join } from "path";
+
+// Load DATABASE_URL from db package's .env.local (single source of truth)
+config({ path: join(__dirname, "../db/.env.local") });
 
 const nextConfig: NextConfig = {
   // Required for Docker/Cloud Run deployment

@@ -7,29 +7,20 @@
  *
  * After reset, runs all migrations (Drizzle + RLS).
  *
- * Usage: pnpm db:reset:local
+ * Usage: pnpm reset:local
  */
 
-import { config } from "dotenv";
-import { resolve } from "node:path";
+import postgres from "postgres";
+import { execSync } from "node:child_process";
+import { userInfo } from "node:os";
 
-// Load .env.local from portal package BEFORE importing config
-// (must be sync, before any dynamic imports)
-config({ path: resolve(import.meta.dirname, "../../portal/.env.local") });
-config({ path: resolve(import.meta.dirname, "../../portal/.env") });
-
-// Dynamic import to ensure env is loaded first
-const { default: postgres } = await import("postgres");
-const { execSync } = await import("node:child_process");
-const { userInfo } = await import("node:os");
-
-const {
+import {
   adminConnectionString,
   connectionString,
   isLocalDocker,
   isNeon,
   LOCAL_DATABASE,
-} = await import("../src/config");
+} from "../src/config";
 
 const username = userInfo().username;
 const DEV_BRANCH_NAME = `dev-${username}`;
