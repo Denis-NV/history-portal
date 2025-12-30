@@ -2,7 +2,7 @@
  * Database Seed Script
  *
  * Seeds the database with test users and sample data.
- * Uses Drizzle ORM inserts with onConflictDoNothing for idempotency.
+ * All data is generated programmatically from TEST_USERS constants.
  *
  * Test Users (all passwords: Test123!):
  *   - alice@test.local (15 cards) - Primary dev/test user
@@ -19,37 +19,25 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as PgPool } from "pg";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { scrypt, randomBytes } from "node:crypto";
+import { promisify } from "node:util";
 import { seed } from "drizzle-seed";
 
 import * as schema from "../src/schema";
 import { connectionString, isLocalDocker, isNeon } from "../src/config";
+import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
+
+const scryptAsync = promisify(scrypt);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test User IDs (used for RLS tests and auth)
+// Password Hashing (Better Auth compatible - scrypt)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const TEST_USERS = {
-  alice: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-  bob: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-  carol: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-  admin: "dddddddd-dddd-dddd-dddd-dddddddddddd",
-} as const;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Load Seed Data from JSON files
-// ─────────────────────────────────────────────────────────────────────────────
-
-const seedDir = resolve(import.meta.dirname, "../seed");
-
-const seedUsers = JSON.parse(
-  readFileSync(resolve(seedDir, "users.json"), "utf-8")
-);
-
-const seedAccounts = JSON.parse(
-  readFileSync(resolve(seedDir, "accounts.json"), "utf-8")
-);
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const hash = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${hash.toString("hex")}`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Database Client Setup
@@ -59,8 +47,8 @@ async function runSeed() {
   const envType = isLocalDocker
     ? "local (Docker)"
     : isNeon
-    ? "remote (Neon)"
-    : "unknown";
+      ? "remote (Neon)"
+      : "unknown";
   console.log("🌱 Starting database seed...");
   console.log(`   Environment: ${envType}`);
 
@@ -80,35 +68,52 @@ async function runSeed() {
   }
 
   try {
-    // Seed users first (accounts reference users)
-    console.log(`📝 Seeding ${seedUsers.length} user(s)...`);
-    for (const userData of seedUsers) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Seed Users from TEST_USERS constant
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const testUsers = Object.values(TEST_USERS);
+    console.log(`📝 Seeding ${testUsers.length} user(s)...`);
+
+    for (const user of testUsers) {
       await db
         .insert(schema.user)
         .values({
-          ...userData,
-          createdAt: new Date(userData.createdAt),
-          updatedAt: new Date(userData.updatedAt),
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          emailVerified: true,
+          role: user.role,
+          image: null,
         })
         .onConflictDoNothing();
     }
     console.log("   ✅ Users seeded");
 
-    // Seed accounts
-    console.log(`📝 Seeding ${seedAccounts.length} account(s)...`);
-    for (const accountData of seedAccounts) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Seed Accounts with hashed password
+    // ─────────────────────────────────────────────────────────────────────────
+
+    console.log(`📝 Seeding ${testUsers.length} account(s)...`);
+    console.log("   🔐 Hashing passwords...");
+
+    for (const user of testUsers) {
+      const hashedPassword = await hashPassword(TEST_PASSWORD);
+
       await db
         .insert(schema.account)
         .values({
-          ...accountData,
-          accessTokenExpiresAt: accountData.accessTokenExpiresAt
-            ? new Date(accountData.accessTokenExpiresAt)
-            : null,
-          refreshTokenExpiresAt: accountData.refreshTokenExpiresAt
-            ? new Date(accountData.refreshTokenExpiresAt)
-            : null,
-          createdAt: new Date(accountData.createdAt),
-          updatedAt: new Date(accountData.updatedAt),
+          id: `${user.id.slice(0, 8)}0001-${user.id.slice(9)}`,
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: hashedPassword,
+          accessToken: null,
+          refreshToken: null,
+          accessTokenExpiresAt: null,
+          refreshTokenExpiresAt: null,
+          scope: null,
+          idToken: null,
         })
         .onConflictDoNothing();
     }
@@ -133,7 +138,7 @@ async function runSeed() {
       card: {
         count: 15,
         columns: {
-          userId: f.default({ defaultValue: TEST_USERS.alice }),
+          userId: f.default({ defaultValue: TEST_USERS.alice.id }),
           title: f.loremIpsum({ sentencesCount: 1 }),
           summary: f.loremIpsum({ sentencesCount: 2 }),
           startYear: f.int({ minValue: -3000, maxValue: 2020 }),
@@ -171,7 +176,7 @@ async function runSeed() {
       card: {
         count: 10,
         columns: {
-          userId: f.default({ defaultValue: TEST_USERS.bob }),
+          userId: f.default({ defaultValue: TEST_USERS.bob.id }),
           title: f.loremIpsum({ sentencesCount: 1 }),
           summary: f.loremIpsum({ sentencesCount: 2 }),
           startYear: f.int({ minValue: -3000, maxValue: 2020 }),
