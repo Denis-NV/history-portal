@@ -78,8 +78,7 @@ history-portal/
 ├── infra/              # Pulumi infrastructure (GCP)
 ├── packages/
 │   ├── db/             # Database schema & migrations
-│   ├── portal/         # Next.js web application
-│   └── utils/          # Shared utilities
+│   └── portal/         # Next.js web application
 ├── package.json        # Root workspace config
 ├── pnpm-workspace.yaml # Workspace definitions
 └── turbo.json          # Turborepo config
@@ -90,6 +89,7 @@ history-portal/
 - [Architecture](docs/ARCHITECTURE.md) — Technical decisions, tech stack, and project structure
 - [Authentication](docs/AUTHENTICATION.md) — Better Auth setup, RLS, and session management
 - [Conventions](docs/CONVENTIONS.md) — Coding standards, type patterns, and API guidelines
+- [Testing](docs/TESTING.md) — Vitest, Playwright, and testing strategy
 - [Infrastructure](docs/INFRASTRUCTURE.md) — Pulumi & GCP setup guide
 - [CI/CD](docs/CI-CD.md) — GitHub Actions workflows and setup
 

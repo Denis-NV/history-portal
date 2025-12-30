@@ -19,24 +19,29 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as PgPool } from "pg";
-import { scrypt, randomBytes } from "node:crypto";
-import { promisify } from "node:util";
+import { randomBytes } from "node:crypto";
 import { seed } from "drizzle-seed";
+import { scrypt as scryptSync } from "@noble/hashes/scrypt.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 import * as schema from "../src/schema";
 import { connectionString, isLocalDocker, isNeon } from "../src/config";
 import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
 
-const scryptAsync = promisify(scrypt);
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Password Hashing (Better Auth compatible - scrypt)
+// Password Hashing (Better Auth compatible - scrypt with exact parameters)
+// Better Auth uses @noble/hashes/scrypt with: N=16384, r=16, p=1, dkLen=64
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex");
-  const hash = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${salt}:${hash.toString("hex")}`;
+function hashPassword(password: string): string {
+  const salt = bytesToHex(randomBytes(16));
+  const key = scryptSync(password.normalize("NFKC"), salt, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    dkLen: 64,
+  });
+  return `${salt}:${bytesToHex(key)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,7 +103,7 @@ async function runSeed() {
     console.log("   🔐 Hashing passwords...");
 
     for (const user of testUsers) {
-      const hashedPassword = await hashPassword(TEST_PASSWORD);
+      const hashedPassword = hashPassword(TEST_PASSWORD);
       // Generate account ID: replace last segment with 0001...
       const accountId = user.id.slice(0, -12) + "000000000001";
 

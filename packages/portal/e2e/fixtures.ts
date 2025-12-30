@@ -1,5 +1,5 @@
 import { test as base, expect } from "@playwright/test";
-import { TEST_USERS, type TestUserKey } from "@history-portal/db/test-utils";
+import { TEST_USERS, type TestUserKey } from "./test-users";
 
 const STORAGE_STATE_DIR = "./e2e/.auth";
 

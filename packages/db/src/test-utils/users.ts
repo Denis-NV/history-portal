@@ -4,6 +4,10 @@
  * Predefined test users with known IDs for use in tests.
  * All users have password: Test123!
  *
+ * The data is stored in users.json (single source of truth) and imported here
+ * with proper TypeScript types. This allows both Vitest and Playwright to
+ * use the same data without duplication.
+ *
  * @example
  * ```ts
  * import { TEST_USERS } from "@history-portal/db/test-utils";
@@ -15,63 +19,38 @@
  * ```
  */
 
-export const TEST_USERS = {
-  /**
-   * Alice - Primary dev/test user
-   * Has 15 seeded cards
-   */
-  alice: {
-    id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-    email: "alice@test.local",
-    name: "Alice Test",
-    role: "user" as const,
-  },
+import usersData from "./users.json" with { type: "json" };
 
-  /**
-   * Bob - Secondary test user
-   * Has 10 seeded cards, used for multi-user RLS tests
-   */
-  bob: {
-    id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    email: "bob@test.local",
-    name: "Bob Test",
-    role: "user" as const,
-  },
-
-  /**
-   * Carol - Empty state test user
-   * Has 0 cards, used for testing empty states
-   */
-  carol: {
-    id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-    email: "carol@test.local",
-    name: "Carol Test",
-    role: "user" as const,
-  },
-
-  /**
-   * Admin - Admin role test user
-   * Has 0 cards, used for testing admin features
-   */
-  admin: {
-    id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
-    email: "admin@test.local",
-    name: "Admin Test",
-    role: "admin" as const,
-  },
-} as const;
+/**
+ * Test users with proper typing
+ * - alice: Primary dev/test user (15 seeded cards)
+ * - bob: Secondary test user (10 seeded cards, for multi-user RLS tests)
+ * - carol: Empty state test user (0 cards)
+ * - admin: Admin role test user (0 cards)
+ */
+export const TEST_USERS = usersData.users as {
+  alice: TestUser;
+  bob: TestUser;
+  carol: TestUser;
+  admin: TestUser;
+};
 
 /**
  * Test user password (same for all test users)
  */
-export const TEST_PASSWORD = "Test123!";
+export const TEST_PASSWORD = usersData.password;
+
+/**
+ * Type for a test user object
+ */
+export type TestUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "user" | "admin";
+};
 
 /**
  * Type for test user keys
  */
 export type TestUserKey = keyof typeof TEST_USERS;
-
-/**
- * Type for a test user object
- */
-export type TestUser = (typeof TEST_USERS)[TestUserKey];

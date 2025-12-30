@@ -24,7 +24,9 @@
     "infra:destroy:staging": "pulumi -C infra destroy --stack staging",
     "infra:preview:prod": "pulumi -C infra preview --stack prod",
     "infra:up:prod": "pulumi -C infra up --stack prod",
-    "ui:add": "pnpm -F @history-portal/portal dlx shadcn@latest add --yes"
+    "ui:add": "pnpm -F @history-portal/portal dlx shadcn@latest add --yes",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e"
   },
   "devDependencies": {
     "@pulumi/pulumi": "^3",

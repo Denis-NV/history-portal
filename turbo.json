@@ -16,6 +16,14 @@
       "outputs": [".next/**", "!.next/cache/**"],
       "persistent": true,
       "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
     }
   }
 }

@@ -1,5 +1,5 @@
 import { test as setup, expect } from "@playwright/test";
-import { TEST_USERS, TEST_PASSWORD } from "@history-portal/db/test-utils";
+import { TEST_USERS, TEST_PASSWORD } from "./test-users";
 
 const STORAGE_STATE_DIR = "./e2e/.auth";
 
@@ -70,8 +70,13 @@ async function authenticateUser(
   // Submit the form
   await page.getByRole("button", { name: /sign in/i }).click();
 
-  // Wait for redirect to timeline (authenticated area)
-  await expect(page).toHaveURL("/timeline");
+  // Wait for authentication to complete - look for sign out button which confirms auth
+  await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({
+    timeout: 30000,
+  });
+
+  // Also verify we're on the timeline page
+  await expect(page).toHaveURL(/.*timeline/, { timeout: 10000 });
 
   // Save storage state
   await page.context().storageState({ path: storagePath });

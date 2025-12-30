@@ -20,6 +20,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^0.10.4
         version: 0.10.4
+      '@noble/hashes':
+        specifier: ^2.0.1
+        version: 2.0.1
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
