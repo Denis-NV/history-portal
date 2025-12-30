@@ -1,12 +1,42 @@
 [
   {
-    "id": "3f8748b8-f0b2-4a4b-b3bd-431b3330059e",
-    "name": "Denis Nemytov",
-    "email": "denisnv@hotmail.com",
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "name": "Alice Test",
+    "email": "alice@test.local",
     "emailVerified": true,
     "image": null,
     "role": "user",
-    "createdAt": "2025-12-21T11:44:18.640Z",
-    "updatedAt": "2025-12-21T11:44:18.640Z"
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "name": "Bob Test",
+    "email": "bob@test.local",
+    "emailVerified": true,
+    "image": null,
+    "role": "user",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    "name": "Carol Test",
+    "email": "carol@test.local",
+    "emailVerified": true,
+    "image": null,
+    "role": "user",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+    "name": "Admin Test",
+    "email": "admin@test.local",
+    "emailVerified": true,
+    "image": null,
+    "role": "admin",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
   }
 ]
