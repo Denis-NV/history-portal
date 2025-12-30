@@ -47,8 +47,8 @@ async function runSeed() {
   const envType = isLocalDocker
     ? "local (Docker)"
     : isNeon
-      ? "remote (Neon)"
-      : "unknown";
+    ? "remote (Neon)"
+    : "unknown";
   console.log("🌱 Starting database seed...");
   console.log(`   Environment: ${envType}`);
 
@@ -99,11 +99,13 @@ async function runSeed() {
 
     for (const user of testUsers) {
       const hashedPassword = await hashPassword(TEST_PASSWORD);
+      // Generate account ID: replace last segment with 0001...
+      const accountId = user.id.slice(0, -12) + "000000000001";
 
       await db
         .insert(schema.account)
         .values({
-          id: `${user.id.slice(0, 8)}0001-${user.id.slice(9)}`,
+          id: accountId,
           userId: user.id,
           accountId: user.id,
           providerId: "credential",
