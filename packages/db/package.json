@@ -27,7 +27,9 @@
     "seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
     "neon:auth": "neonctl auth",
     "dev": "dotenv -e .env.local -- drizzle-kit studio",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "dotenv -e .env.local -- vitest run",
+    "test:watch": "dotenv -e .env.local -- vitest"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
