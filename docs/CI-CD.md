@@ -96,12 +96,15 @@
 
 **Ephemeral Branch Flow:**
 
-The test global setup/teardown handles branch lifecycle identically in local and CI:
+Each test runner creates and manages its own ephemeral branch independently:
 
 ```
-Vitest (runs first)    → Creates ephemeral branch, skips cleanup
-Playwright (runs last) → Reuses branch, deletes it when done
+Vitest (unit/integration) → Creates branch → Runs tests → Deletes branch
+Playwright (E2E)          → Creates branch → Runs tests → Deletes branch
 ```
+
+Note: Playwright creates its branch in the webServer command (before Next.js starts)
+to ensure DATABASE_URL is set before any code is compiled.
 
 ### Release Workflow
 

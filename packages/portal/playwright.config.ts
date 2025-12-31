@@ -10,17 +10,22 @@ config({ path: resolve(__dirname, "../db/.env.test"), quiet: true });
  * Playwright Configuration for E2E Tests
  *
  * Test Strategy:
- * - Creates an ephemeral Neon branch for test isolation (via globalSetup)
+ * - Creates an ephemeral Neon branch for test isolation (via webServer command)
  * - Uses seeded test users (Alice, Bob, Carol, Admin) for user-based isolation
  * - Each user has their own authenticated storage state
  * - Tests can run in parallel without conflicting because each user has unique data
  * - Cleans up ephemeral branch after tests complete (via globalTeardown)
  *
+ * Branch Creation:
+ * - The webServer command creates the branch BEFORE Next.js starts
+ * - This ensures DATABASE_URL is set before any code is compiled
+ * - globalSetup just loads the DATABASE_URL for the Playwright process
+ *
  * Test Users:
- * - alice@test.com (15 cards) - Primary test user
- * - bob@test.com (10 cards) - Secondary test user
- * - carol@test.com (0 cards) - Empty state test user
- * - admin@test.com (admin role) - Admin functionality tests
+ * - alice@test.local (15 cards) - Primary test user
+ * - bob@test.local (10 cards) - Secondary test user
+ * - carol@test.local (0 cards) - Empty state test user
+ * - admin@test.local (admin role) - Admin functionality tests
  *
  * Environment:
  * - Set KEEP_TEST_BRANCH=1 to skip branch cleanup (for debugging)
@@ -40,8 +45,8 @@ export default defineConfig({
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry on CI only - reduced for debugging
-  retries: process.env.CI ? 0 : 0,
+  // Retry on CI only
+  retries: process.env.CI ? 2 : 0,
 
   // Opt out of parallel tests on CI for stability
   workers: process.env.CI ? 1 : undefined,
