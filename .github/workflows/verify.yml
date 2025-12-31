@@ -69,9 +69,6 @@ jobs:
       - name: Install Pulumi CLI
         uses: pulumi/actions@v6
 
-      - name: Authenticate with Neon
-        run: pnpm -F @history-portal/db exec neonctl auth --api-key ${{ secrets.NEON_API_KEY }}
-
       - name: Run unit/integration tests
         run: pnpm turbo test
 
