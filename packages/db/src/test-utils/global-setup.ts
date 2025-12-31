@@ -5,7 +5,7 @@
  * The branch is deleted in teardown to avoid data contamination.
  *
  * Modes:
- * - Local Docker: No ephemeral branch needed (DATABASE_URL not set)
+ * - Local Docker: No ephemeral branch needed (no DATABASE_URL, not CI)
  * - Neon (local/CI): Create fresh ephemeral branch, delete after tests
  *
  * Each test runner (Vitest, Playwright) manages its own branch independently.
@@ -22,13 +22,14 @@ const dbPackagePath = resolve(__dirname, "../..");
 const envTestFile = resolve(dbPackagePath, ".env.test");
 
 export async function setup() {
-  const isLocal = !process.env.DATABASE_URL;
+  // Local Docker mode: no DATABASE_URL and not running in CI
+  const isLocalDocker = !process.env.DATABASE_URL && !process.env.CI;
 
   console.log("\n🧪 Vitest Global Setup");
-  console.log(`   Mode: ${isLocal ? "Local Docker" : "Neon"}`);
+  console.log(`   Mode: ${isLocalDocker ? "Local Docker" : "Neon"}`);
 
   // If using local Docker, no ephemeral branch needed
-  if (isLocal) {
+  if (isLocalDocker) {
     console.log("   Using local Docker database\n");
     return;
   }
@@ -64,17 +65,9 @@ export async function setup() {
 }
 
 export async function teardown() {
-  const isLocal = !process.env.DATABASE_URL?.includes("neon.tech");
-
   console.log("\n🧹 Vitest Global Teardown");
 
-  // If using local Docker, no cleanup needed
-  if (isLocal) {
-    console.log("   Local Docker - no cleanup needed\n");
-    return;
-  }
-
-  // Skip if .env.test doesn't exist
+  // Skip if .env.test doesn't exist (means we're using local Docker)
   if (!existsSync(envTestFile)) {
     console.log("   No ephemeral branch to clean up\n");
     return;
