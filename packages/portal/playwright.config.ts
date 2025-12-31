@@ -123,13 +123,24 @@ export default defineConfig({
 
   // Run your local dev server before starting the tests
   webServer: {
-    // Source .env.test (created by globalSetup with ephemeral branch URL)
-    // The set -a makes all variables exported to child processes
-    command:
-      "set -a && [ -f ../db/.env.test ] && . ../db/.env.test; set +a && pnpm dev",
+    // Wait for globalSetup to create .env.test, then source it and start Next.js
+    // The while loop waits up to 60s for the file to appear
+    command: `
+      echo "Waiting for .env.test..." &&
+      timeout=60 &&
+      while [ ! -f ../db/.env.test ] && [ $timeout -gt 0 ]; do
+        sleep 1
+        timeout=$((timeout - 1))
+      done &&
+      if [ -f ../db/.env.test ]; then
+        echo "Found .env.test, loading..."
+        set -a && . ../db/.env.test && set +a
+      fi &&
+      pnpm dev
+    `,
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 60 * 1000,
+    timeout: 120 * 1000, // Increased to account for wait time
     stdout: "pipe",
     stderr: "pipe",
   },
