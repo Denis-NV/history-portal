@@ -123,9 +123,14 @@ export default defineConfig({
 
   // Run your local dev server before starting the tests
   webServer: {
-    command: "pnpm dev",
+    // Source .env.test (created by globalSetup with ephemeral branch URL)
+    // The set -a makes all variables exported to child processes
+    command:
+      "set -a && [ -f ../db/.env.test ] && . ../db/.env.test; set +a && pnpm dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60 * 1000,
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });
