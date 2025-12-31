@@ -123,24 +123,18 @@ export default defineConfig({
 
   // Run your local dev server before starting the tests
   webServer: {
-    // Wait for globalSetup to create .env.test, then source it and start Next.js
-    // The while loop waits up to 60s for the file to appear
+    // Create ephemeral branch FIRST, then source .env.test and start Next.js
+    // This ensures DATABASE_URL is set before Next.js compiles any code
     command: `
-      echo "Waiting for .env.test..." &&
-      timeout=60 &&
-      while [ ! -f ../db/.env.test ] && [ $timeout -gt 0 ]; do
-        sleep 1
-        timeout=$((timeout - 1))
-      done &&
-      if [ -f ../db/.env.test ]; then
-        echo "Found .env.test, loading..."
-        set -a && . ../db/.env.test && set +a
-      fi &&
+      cd ../db &&
+      pnpm exec tsx scripts/ephemeral-branch.ts create &&
+      cd ../portal &&
+      set -a && . ../db/.env.test && set +a &&
       pnpm dev
     `,
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // Increased to account for wait time
+    timeout: 120 * 1000, // Account for branch creation time
     stdout: "pipe",
     stderr: "pipe",
   },

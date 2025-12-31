@@ -1,21 +1,17 @@
 /**
  * Playwright Global Setup
  *
- * Creates an ephemeral Neon branch before E2E tests run.
- * The branch is deleted in globalTeardown to avoid data contamination.
- *
- * Each test runner (Vitest, Playwright) manages its own branch independently.
- * This ensures complete isolation between unit tests and E2E tests.
+ * The ephemeral Neon branch is created by the webServer command BEFORE this runs.
+ * This setup just loads the DATABASE_URL for the Playwright test runner process.
  *
  * The branch is:
- * - Created from main (staging) branch
+ * - Created by webServer command (before Next.js starts)
  * - Migrated with latest schema + RLS policies
  * - Seeded with test data
  * - Deleted after tests complete (via globalTeardown)
  */
 
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // Use process.cwd() since Playwright runs from portal package root
@@ -25,36 +21,32 @@ const envTestFile = resolve(dbPackagePath, ".env.test");
 async function globalSetup() {
   console.log("\n🧪 E2E Global Setup\n");
 
-  // Clean up any stale .env.test from previous run
-  if (existsSync(envTestFile)) {
-    console.log("   Cleaning up stale .env.test...\n");
-    unlinkSync(envTestFile);
-  }
+  // Wait for webServer to create .env.test (it runs in parallel)
+  // The webServer command creates the ephemeral branch before starting Next.js
+  let attempts = 0;
+  const maxAttempts = 60; // Wait up to 60 seconds
 
-  // Create fresh ephemeral branch
-  console.log("   Creating ephemeral Neon branch...\n");
-  try {
-    execSync("pnpm exec tsx scripts/ephemeral-branch.ts create", {
-      cwd: dbPackagePath,
-      stdio: "inherit",
-    });
-  } catch (error) {
-    console.error("❌ Failed to create ephemeral branch:", error);
-    throw error;
+  while (!existsSync(envTestFile) && attempts < maxAttempts) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    attempts++;
+    if (attempts % 10 === 0) {
+      console.log(`   Waiting for .env.test... (${attempts}s)\n`);
+    }
   }
 
   // Load DATABASE_URL from .env.test and set in process.env
-  // This allows Playwright's webServer to inherit it
   if (existsSync(envTestFile)) {
     const content = readFileSync(envTestFile, "utf-8");
     const match = content.match(/DATABASE_URL=["']?([^"'\n]+)["']?/);
     if (match) {
       process.env.DATABASE_URL = match[1].trim();
-      console.log("   Set DATABASE_URL from .env.test\n");
+      console.log("   ✅ Loaded DATABASE_URL from .env.test\n");
     }
+  } else {
+    console.error("   ❌ .env.test not found after waiting\n");
   }
 
-  console.log("\n✅ Ephemeral branch ready for E2E tests\n");
+  console.log("✅ E2E Global Setup complete\n");
 }
 
 export default globalSetup;
