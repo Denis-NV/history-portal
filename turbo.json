@@ -19,11 +19,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["PULUMI_ACCESS_TOKEN", "NEON_API_KEY", "CI"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["PULUMI_ACCESS_TOKEN", "NEON_API_KEY", "CI"]
     }
   }
 }
