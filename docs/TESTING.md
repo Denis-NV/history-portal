@@ -306,9 +306,11 @@ packages/portal/
 │           ├── sign-out-button.tsx
 │           └── sign-out-button.test.tsx
 └── e2e/
-    ├── auth.setup.ts    # Auth setup project
-    ├── fixtures.ts      # Custom test fixtures
-    ├── test-users.ts    # Test user data
+    ├── auth.setup.ts      # Auth setup project
+    ├── fixtures.ts        # Custom test fixtures
+    ├── global-setup.ts    # Creates ephemeral Neon branch
+    ├── global-teardown.ts # Deletes ephemeral branch
+    ├── test-users.ts      # Test user data
     └── tests/
         └── timeline.spec.ts  # E2E test specs
 ```
@@ -332,8 +334,10 @@ vi.mock("@/app/actions", () => ({
 RLS tests run against the **real database** (no mocking). This is intentional:
 
 - Tests verify actual PostgreSQL RLS policies
-- Uses the seeded Neon dev branch
+- Uses an ephemeral Neon branch (fresh, isolated, seeded)
 - Ensures security policies work as expected
+
+See [Ephemeral Test Branches](#ephemeral-test-branches) for details.
 
 ### Authentication in Component Tests
 
@@ -344,6 +348,50 @@ import { createMockSession } from "@history-portal/db/test-utils";
 import { TEST_USERS } from "@history-portal/db/test-utils";
 
 const mockSession = createMockSession(TEST_USERS.alice);
+```
+
+---
+
+## Ephemeral Test Branches
+
+Both RLS tests (Vitest) and E2E tests (Playwright) use **ephemeral Neon branches** for test isolation. This ensures:
+
+- Tests run against a known, seeded database state
+- No interference from development data changes
+- Parallel test runs in CI don't conflict
+- Tests are predictable and reproducible
+
+### How It Works
+
+1. **Before tests run**: A fresh Neon branch is created from `main`
+2. **Migrations applied**: Schema + RLS policies are migrated
+3. **Database seeded**: Test users and sample data are inserted
+4. **Tests execute**: Against the isolated branch
+5. **After tests complete**: Branch is automatically deleted
+
+### Keeping Branches for Debugging
+
+To preserve the ephemeral branch after tests (for debugging):
+
+```bash
+# Set KEEP_TEST_BRANCH to skip cleanup
+KEEP_TEST_BRANCH=1 pnpm test:e2e
+
+# When done debugging, delete the .env.test file
+# The orphaned Neon branch will auto-suspend
+rm packages/db/.env.test
+```
+
+### Local Docker Mode
+
+When `DATABASE_URL` is not set, tests run against local Docker (no ephemeral branch needed). This is faster for rapid local iteration:
+
+```bash
+# Ensure local Docker is running
+pnpm db:up
+
+# Run tests against local Docker
+unset DATABASE_URL && pnpm test
 ```
 
 ---
@@ -420,3 +468,36 @@ export const TEST_USERS = {
 - **RLS tests:** Ensure database connection is closed in `afterAll`
 - **E2E tests:** Increase timeout in `playwright.config.ts`
 - **Component tests:** Check for missing async cleanup
+
+### Ephemeral Branch Issues
+
+**Branch creation fails:**
+
+```bash
+# Ensure you're authenticated with Neon
+pnpm -F @history-portal/db exec neonctl auth
+
+# Check Pulumi staging stack is deployed (for project ID)
+pnpm infra:up:staging
+```
+
+**Orphaned test branches:**
+If tests are interrupted, branches may not be cleaned up:
+
+```bash
+# List all branches to find orphaned test-* branches
+pnpm -F @history-portal/db exec neonctl branches list
+
+# Delete manually via Neon console or CLI
+```
+
+**Stale .env.test file:**
+If `.env.test` points to a deleted branch:
+
+```bash
+# Remove stale env file
+rm packages/db/.env.test
+
+# Re-run tests (will create fresh branch)
+pnpm test
+```

@@ -1,19 +1,16 @@
 /**
- * Vitest Global Setup for Database Tests
+ * Vitest Per-File Setup for Database Tests
  *
- * This file runs before all tests in the db package.
- * It sets up any global configuration needed for database testing.
+ * This file runs before each test file in the db package.
+ * Global setup (ephemeral branch creation) is handled by global-setup.ts
  */
 
 import { beforeAll, afterAll } from "vitest";
 
 beforeAll(async () => {
-  // Any global setup can go here
-  // For example: verifying database connection, creating test branch, etc.
-  console.log("🧪 Starting database tests...");
+  // Per-file setup can go here if needed
 });
 
 afterAll(async () => {
-  // Any global cleanup can go here
-  console.log("🧪 Database tests complete.");
+  // Per-file cleanup can go here if needed
 });

@@ -1,21 +1,36 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
+import { config } from "dotenv";
+
+// Load .env.test from db package (for ephemeral branch DATABASE_URL)
+// Child processes (Next.js dev server) inherit these env vars
+config({ path: resolve(__dirname, "../db/.env.test"), quiet: true });
 
 /**
  * Playwright Configuration for E2E Tests
  *
  * Test Strategy:
+ * - Creates an ephemeral Neon branch for test isolation (via globalSetup)
  * - Uses seeded test users (Alice, Bob, Carol, Admin) for user-based isolation
  * - Each user has their own authenticated storage state
  * - Tests can run in parallel without conflicting because each user has unique data
+ * - Cleans up ephemeral branch after tests complete (via globalTeardown)
  *
  * Test Users:
  * - alice@test.com (15 cards) - Primary test user
  * - bob@test.com (10 cards) - Secondary test user
  * - carol@test.com (0 cards) - Empty state test user
  * - admin@test.com (admin role) - Admin functionality tests
+ *
+ * Environment:
+ * - Set KEEP_TEST_BRANCH=1 to skip branch cleanup (for debugging)
  */
 
 export default defineConfig({
+  // Global setup creates ephemeral Neon branch
+  globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
+
   // Test directory
   testDir: "./e2e",
 

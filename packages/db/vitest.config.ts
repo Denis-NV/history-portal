@@ -12,14 +12,17 @@ export default defineConfig({
     // This allows transaction-based isolation without parallel conflicts
     fileParallelism: false,
 
-    // Global test setup
+    // Global setup for ephemeral branch management (Neon only)
+    globalSetup: ["./src/test-utils/global-setup.ts"],
+
+    // Per-file setup
     setupFiles: ["./src/test-utils/setup.ts"],
 
     // Environment
     environment: "node",
 
-    // Timeouts for database operations
+    // Timeouts for database operations (increased for branch creation)
     testTimeout: 10000,
-    hookTimeout: 10000,
+    hookTimeout: 30000,
   },
 });
