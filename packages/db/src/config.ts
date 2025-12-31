@@ -16,7 +16,8 @@ const _configDirPath = dirname(_configFilePath);
 // Load DATABASE_URL from .env.test if it exists (for ephemeral test branches)
 // This happens at module load time, before process.env.DATABASE_URL is read
 function loadEnvTest(): string | undefined {
-  const envTestPath = resolve(_configDirPath, "../../.env.test");
+  // Path: packages/db/src/config.ts -> packages/db/.env.test (one level up)
+  const envTestPath = resolve(_configDirPath, "../.env.test");
   const exists = existsSync(envTestPath);
 
   // Debug logging for CI troubleshooting
@@ -27,7 +28,8 @@ function loadEnvTest(): string | undefined {
 
   if (exists) {
     const content = readFileSync(envTestPath, "utf-8");
-    const match = content.match(/DATABASE_URL=(.+)/);
+    // Match DATABASE_URL with optional quotes (handles both quoted and unquoted values)
+    const match = content.match(/DATABASE_URL=["']?([^"'\n]+)["']?/);
     if (match) {
       if (process.env.CI) {
         console.log("[DB Config] Loaded DATABASE_URL from .env.test");
