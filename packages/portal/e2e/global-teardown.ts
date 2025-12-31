@@ -42,7 +42,7 @@ async function globalTeardown() {
 
   console.log("   Deleting ephemeral branch...\n");
   try {
-    execSync("tsx scripts/ephemeral-branch.ts delete", {
+    execSync("pnpm exec tsx scripts/ephemeral-branch.ts delete", {
       cwd: dbPackagePath,
       stdio: "inherit",
     });

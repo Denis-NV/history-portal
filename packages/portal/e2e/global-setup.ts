@@ -34,7 +34,7 @@ async function globalSetup() {
   // Create fresh ephemeral branch
   console.log("   Creating ephemeral Neon branch...\n");
   try {
-    execSync("tsx scripts/ephemeral-branch.ts create", {
+    execSync("pnpm exec tsx scripts/ephemeral-branch.ts create", {
       cwd: dbPackagePath,
       stdio: "inherit",
     });
