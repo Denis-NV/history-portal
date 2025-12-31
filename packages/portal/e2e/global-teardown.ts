@@ -11,8 +11,8 @@
  * - KEEP_TEST_BRANCH is set (for debugging)
  */
 
-import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
@@ -37,21 +37,52 @@ async function globalTeardown() {
   }
 
   // Wait for WebServer connections to close gracefully
+  // Neon needs time to terminate connections before branch can be deleted
   console.log("   Waiting for connections to close...\n");
-  await setTimeout(2000);
+  await setTimeout(5000);
 
-  console.log("   Deleting ephemeral branch...\n");
-  try {
-    execSync("pnpm exec tsx scripts/ephemeral-branch.ts delete", {
-      cwd: dbPackagePath,
-      stdio: "inherit",
-    });
-  } catch (error) {
-    console.error("⚠️  Failed to delete ephemeral branch:", error);
-    // Don't throw - we don't want to fail the test run on cleanup errors
+  // Retry branch deletion up to 3 times with increasing delays
+  // This handles transient connection issues
+  let deleted = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    console.log(`   Deleting ephemeral branch (attempt ${attempt}/3)...\n`);
+    try {
+      const result = spawnSync(
+        "pnpm",
+        ["exec", "tsx", "scripts/ephemeral-branch.ts", "delete"],
+        {
+          cwd: dbPackagePath,
+          encoding: "utf-8",
+          stdio: "inherit",
+        }
+      );
+
+      if (result.status === 0) {
+        deleted = true;
+        break;
+      }
+    } catch (error) {
+      console.error(`   ⚠️  Attempt ${attempt} failed:`, error);
+    }
+
+    if (attempt < 3) {
+      console.log(`   Waiting before retry...\n`);
+      await setTimeout(3000);
+    }
   }
 
-  console.log("\n✅ E2E cleanup complete\n");
+  if (!deleted) {
+    // Last resort: try to clean up .env.test anyway
+    console.error("   ⚠️  Could not delete branch after 3 attempts");
+    console.error("   Branch may need manual cleanup in Neon console");
+
+    if (existsSync(envTestFile)) {
+      unlinkSync(envTestFile);
+      console.log(`   ✅ Removed ${envTestFile}\n`);
+    }
+  }
+
+  console.log("✅ E2E cleanup complete\n");
 }
 
 export default globalTeardown;
