@@ -2,10 +2,7 @@ import type { NextConfig } from "next";
 import { config } from "dotenv";
 import { join } from "path";
 
-// Load DATABASE_URL from db package
-// Priority: .env.test (ephemeral test branch) > .env.local (local development)
-// This allows both local dev and E2E tests to work correctly
-config({ path: join(__dirname, "../db/.env.test") });
+// Load DATABASE_URL from db package for local development
 config({ path: join(__dirname, "../db/.env.local") });
 
 const nextConfig: NextConfig = {

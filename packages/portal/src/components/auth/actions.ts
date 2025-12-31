@@ -35,13 +35,9 @@ export type SignUpState = FormState;
  */
 function getUserFriendlyError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : String(err);
-  const stack = err instanceof Error ? err.stack : undefined;
 
-  // Log for debugging (visible in server console)
+  // Log for server-side debugging
   console.error("[Auth Error]", message);
-  if (stack && process.env.CI) {
-    console.error("[Auth Error Stack]", stack);
-  }
 
   // Database connection errors
   if (

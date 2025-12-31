@@ -89,9 +89,9 @@
 4. Install Pulumi CLI (for getting Neon project ID from staging stack)
 5. Authenticate with Neon
 6. Run linting (`pnpm turbo lint`)
-7. Run unit/integration tests (`pnpm turbo test`) - creates ephemeral branch
+7. Run unit/integration tests (`pnpm turbo test`) - creates/deletes own ephemeral branch
 8. Install Playwright browsers
-9. Run E2E tests - reuses branch, cleans up after
+9. Run E2E tests - creates/deletes own ephemeral branch
 10. Upload Playwright report on failure
 
 **Ephemeral Branch Flow:**

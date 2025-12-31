@@ -308,7 +308,7 @@ packages/portal/
 └── e2e/
     ├── auth.setup.ts      # Auth setup project
     ├── fixtures.ts        # Custom test fixtures
-    ├── global-setup.ts    # Creates ephemeral Neon branch
+    ├── global-setup.ts    # Loads DATABASE_URL from .env.test
     ├── global-teardown.ts # Deletes ephemeral branch
     ├── test-users.ts      # Test user data
     └── tests/
@@ -363,11 +363,20 @@ Both RLS tests (Vitest) and E2E tests (Playwright) use **ephemeral Neon branches
 
 ### How It Works
 
-1. **Before tests run**: A fresh Neon branch is created from `main`
-2. **Migrations applied**: Schema + RLS policies are migrated
-3. **Database seeded**: Test users and sample data are inserted
-4. **Tests execute**: Against the isolated branch
-5. **After tests complete**: Branch is automatically deleted
+**Vitest (unit/integration tests):**
+
+1. Global setup creates ephemeral branch, migrates, seeds
+2. Tests execute against the isolated branch
+3. Global teardown deletes the branch
+
+**Playwright (E2E tests):**
+
+1. webServer command creates ephemeral branch before starting Next.js
+2. Global setup loads DATABASE_URL for the Playwright process
+3. Tests execute against the isolated branch
+4. Global teardown deletes the branch
+
+Each test runner manages its own branch independently.
 
 ### Keeping Branches for Debugging
 

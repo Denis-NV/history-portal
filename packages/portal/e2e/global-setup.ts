@@ -21,20 +21,7 @@ const envTestFile = resolve(dbPackagePath, ".env.test");
 async function globalSetup() {
   console.log("\n🧪 E2E Global Setup\n");
 
-  // Wait for webServer to create .env.test (it runs in parallel)
-  // The webServer command creates the ephemeral branch before starting Next.js
-  let attempts = 0;
-  const maxAttempts = 60; // Wait up to 60 seconds
-
-  while (!existsSync(envTestFile) && attempts < maxAttempts) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    attempts++;
-    if (attempts % 10 === 0) {
-      console.log(`   Waiting for .env.test... (${attempts}s)\n`);
-    }
-  }
-
-  // Load DATABASE_URL from .env.test and set in process.env
+  // Load DATABASE_URL from .env.test (created by webServer before Next.js started)
   if (existsSync(envTestFile)) {
     const content = readFileSync(envTestFile, "utf-8");
     const match = content.match(/DATABASE_URL=["']?([^"'\n]+)["']?/);
@@ -43,7 +30,7 @@ async function globalSetup() {
       console.log("   ✅ Loaded DATABASE_URL from .env.test\n");
     }
   } else {
-    console.error("   ❌ .env.test not found after waiting\n");
+    console.error("   ❌ .env.test not found - webServer may have failed\n");
   }
 
   console.log("✅ E2E Global Setup complete\n");
