@@ -49,14 +49,15 @@ export const LOCAL_DATABASE = "history_portal";
 
 /**
  * Database connection string.
- * Priority: .env.test (ephemeral test branch) > DATABASE_URL env var > local default
- * - Test: Uses ephemeral Neon branch (for E2E/integration tests)
- * - Cloud: Set via DATABASE_URL environment variable by Cloud Run
+ * Priority: DATABASE_URL env var > .env.test file > local default
+ * - CI/E2E: process.env.DATABASE_URL is set by Playwright globalSetup
+ * - CLI tools: Falls back to reading .env.test file directly
+ * - Cloud: Set via DATABASE_URL environment variable
  * - Local: Uses localtest.me domain (routed to Docker via neon-proxy)
  */
 export const connectionString =
-  loadEnvTest() ??
   process.env.DATABASE_URL ??
+  loadEnvTest() ??
   `postgres://${LOCAL_USER}:${LOCAL_PASSWORD}@${LOCAL_HOST}:${LOCAL_PORT}/${LOCAL_DATABASE}`;
 
 // Debug logging for CI troubleshooting
