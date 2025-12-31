@@ -1,8 +1,11 @@
 /**
  * Playwright Global Setup
  *
- * Creates an ephemeral Neon branch before all E2E tests run.
- * This ensures tests run against a fresh, isolated database.
+ * Creates an ephemeral Neon branch before E2E tests run.
+ * The branch is deleted in globalTeardown to avoid data contamination.
+ *
+ * Each test runner (Vitest, Playwright) manages its own branch independently.
+ * This ensures complete isolation between unit tests and E2E tests.
  *
  * The branch is:
  * - Created from main (staging) branch
@@ -12,7 +15,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 
 // Use process.cwd() since Playwright runs from portal package root
@@ -20,21 +23,16 @@ const dbPackagePath = resolve(process.cwd(), "../db");
 const envTestFile = resolve(dbPackagePath, ".env.test");
 
 async function globalSetup() {
-  console.log("\n🧪 E2E Global Setup: Creating ephemeral Neon branch...\n");
+  console.log("\n🧪 E2E Global Setup\n");
 
-  // Clean up any stale .env.test from previous interrupted runs
+  // Clean up any stale .env.test from previous run
   if (existsSync(envTestFile)) {
-    console.log("   ⚠️  Found stale .env.test, cleaning up first...");
-    try {
-      execSync("tsx scripts/ephemeral-branch.ts delete", {
-        cwd: dbPackagePath,
-        stdio: "inherit",
-      });
-    } catch {
-      // Ignore cleanup errors
-    }
+    console.log("   Cleaning up stale .env.test...\n");
+    unlinkSync(envTestFile);
   }
 
+  // Create fresh ephemeral branch
+  console.log("   Creating ephemeral Neon branch...\n");
   try {
     execSync("tsx scripts/ephemeral-branch.ts create", {
       cwd: dbPackagePath,

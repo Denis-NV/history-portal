@@ -398,33 +398,36 @@ unset DATABASE_URL && pnpm test
 
 ## CI Integration
 
-Tests are integrated into the CI pipeline via turbo tasks:
+Tests are integrated into the CI pipeline via the [verify workflow](../.github/workflows/verify.yml):
 
-```json
-// turbo.json
-{
-  "tasks": {
-    "test": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
-    "test:e2e": {
-      "dependsOn": ["build"],
-      "cache": false
-    }
-  }
-}
+### What Runs in CI
+
+| Test Type         | Runs In CI | Notes                               |
+| ----------------- | :--------: | ----------------------------------- |
+| Linting           |     ✅     | `pnpm turbo lint`                   |
+| Unit tests        |     ✅     | Against ephemeral Neon branch       |
+| Integration tests |     ✅     | RLS tests against ephemeral branch  |
+| E2E tests         |     ✅     | Playwright against ephemeral branch |
+
+### CI Workflow
+
+Each test runner creates and deletes its own ephemeral branch:
+
+```
+Vitest    → Creates branch → Runs tests → Deletes branch
+Playwright → Creates branch → Runs tests → Deletes branch
 ```
 
-### Running in CI
+This ensures complete isolation - unit/integration tests and E2E tests never share data.
 
-```bash
-# Unit/Integration tests
-pnpm test
+### Secrets Required
 
-# E2E tests (requires running app)
-pnpm test:e2e
-```
+| Secret                | Purpose                         |
+| --------------------- | ------------------------------- |
+| `PULUMI_ACCESS_TOKEN` | Get Neon project ID from Pulumi |
+| `NEON_API_KEY`        | Authenticate with Neon CLI      |
+
+See [CI-CD.md](./CI-CD.md) for full setup instructions.
 
 ---
 

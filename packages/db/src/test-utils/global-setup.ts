@@ -2,14 +2,18 @@
  * Vitest Global Setup for Database Tests
  *
  * Creates an ephemeral Neon branch before RLS tests run.
- * This ensures database tests run against a fresh, isolated database.
+ * The branch is deleted in teardown to avoid data contamination.
  *
- * Note: This only runs when testing against Neon (not local Docker).
- * Local Docker tests use the existing local database.
+ * Modes:
+ * - Local Docker: No ephemeral branch needed (DATABASE_URL not set)
+ * - Neon (local/CI): Create fresh ephemeral branch, delete after tests
+ *
+ * Each test runner (Vitest, Playwright) manages its own branch independently.
+ * This ensures complete isolation between unit tests and E2E tests.
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,20 +33,13 @@ export async function setup() {
     return;
   }
 
-  // Clean up any stale .env.test from previous interrupted runs
+  // Clean up any stale .env.test from previous run
   if (existsSync(envTestFile)) {
-    console.log("   ⚠️  Found stale .env.test, cleaning up first...");
-    try {
-      execSync("tsx scripts/ephemeral-branch.ts delete", {
-        cwd: dbPackagePath,
-        stdio: "inherit",
-      });
-    } catch {
-      // Ignore cleanup errors
-    }
+    console.log("   Cleaning up stale .env.test...");
+    unlinkSync(envTestFile);
   }
 
-  // Create ephemeral branch for Neon testing
+  // Create fresh ephemeral branch
   console.log("   Creating ephemeral Neon branch...\n");
   try {
     execSync("tsx scripts/ephemeral-branch.ts create", {
@@ -83,7 +80,7 @@ export async function teardown() {
     return;
   }
 
-  // Skip cleanup if KEEP_TEST_BRANCH is set
+  // Skip cleanup if KEEP_TEST_BRANCH is set (for debugging)
   if (process.env.KEEP_TEST_BRANCH) {
     console.log("   ⚠️  KEEP_TEST_BRANCH is set, skipping cleanup\n");
     return;
@@ -99,5 +96,5 @@ export async function teardown() {
     console.error("⚠️  Failed to delete ephemeral branch:", error);
   }
 
-  console.log("\n✅ Cleanup complete\n");
+  console.log("\n✅ Vitest cleanup complete\n");
 }

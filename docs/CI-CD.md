@@ -69,7 +69,7 @@
 
 **File:** [.github/workflows/verify.yml](../.github/workflows/verify.yml)
 
-**Purpose:** Run linting (and tests in the future) on pull requests. This workflow is:
+**Purpose:** Run linting and tests on pull requests. This workflow is:
 
 - Required in branch protection (blocks PRs if failing)
 - Reusable by other workflows via `workflow_call`
@@ -79,13 +79,29 @@
 - Pull requests targeting `main`
 - Called by `release.yml` before deployment
 
+**Job:** `Lint & Test`
+
 **Steps:**
 
 1. Checkout code
-2. Setup pnpm (version from `packageManager` in package.json)
-3. Setup Node.js with pnpm caching
-4. Install dependencies
-5. Run `pnpm turbo lint`
+2. Setup pnpm and Node.js
+3. Install dependencies
+4. Install Pulumi CLI (for getting Neon project ID from staging stack)
+5. Authenticate with Neon
+6. Run linting (`pnpm turbo lint`)
+7. Run unit/integration tests (`pnpm turbo test`) - creates ephemeral branch
+8. Install Playwright browsers
+9. Run E2E tests - reuses branch, cleans up after
+10. Upload Playwright report on failure
+
+**Ephemeral Branch Flow:**
+
+The test global setup/teardown handles branch lifecycle identically in local and CI:
+
+```
+Vitest (runs first)    → Creates ephemeral branch, skips cleanup
+Playwright (runs last) → Reuses branch, deletes it when done
+```
 
 ### Release Workflow
 
@@ -240,15 +256,6 @@ Configure branch protection to require the verify workflow before merging:
 ---
 
 ## 5. Future Enhancements
-
-### Adding Tests
-
-When you add tests, update [verify.yml](../.github/workflows/verify.yml):
-
-```yaml
-- name: Run tests
-  run: pnpm turbo test
-```
 
 ### Production Deployments
 
