@@ -129,9 +129,7 @@ export default defineConfig({
       cd ../db &&
       pnpm exec tsx scripts/ephemeral-branch.ts create &&
       cd ../portal &&
-      echo "Sourcing .env.test..." &&
       set -a && . ../db/.env.test && set +a &&
-      echo "DATABASE_URL starts with: \${DATABASE_URL:0:50}..." &&
       pnpm dev
     `,
     url: "http://localhost:3000",
