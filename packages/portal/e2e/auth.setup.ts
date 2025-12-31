@@ -72,7 +72,7 @@ async function authenticateUser(
 
   // Wait for authentication to complete - look for sign out button which confirms auth
   await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({
-    timeout: 30000,
+    timeout: 15000,
   });
 
   // Also verify we're on the timeline page

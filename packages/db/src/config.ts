@@ -17,10 +17,21 @@ const _configDirPath = dirname(_configFilePath);
 // This happens at module load time, before process.env.DATABASE_URL is read
 function loadEnvTest(): string | undefined {
   const envTestPath = resolve(_configDirPath, "../../.env.test");
-  if (existsSync(envTestPath)) {
+  const exists = existsSync(envTestPath);
+
+  // Debug logging for CI troubleshooting
+  if (process.env.CI) {
+    console.log("[DB Config] Looking for .env.test at:", envTestPath);
+    console.log("[DB Config] .env.test exists:", exists);
+  }
+
+  if (exists) {
     const content = readFileSync(envTestPath, "utf-8");
     const match = content.match(/DATABASE_URL=(.+)/);
     if (match) {
+      if (process.env.CI) {
+        console.log("[DB Config] Loaded DATABASE_URL from .env.test");
+      }
       return match[1].trim();
     }
   }
@@ -45,6 +56,18 @@ export const connectionString =
   loadEnvTest() ??
   process.env.DATABASE_URL ??
   `postgres://${LOCAL_USER}:${LOCAL_PASSWORD}@${LOCAL_HOST}:${LOCAL_PORT}/${LOCAL_DATABASE}`;
+
+// Debug logging for CI troubleshooting
+if (process.env.CI) {
+  console.log(
+    "[DB Config] Final connection type:",
+    connectionString.includes("neon.tech")
+      ? "Neon"
+      : connectionString.includes("localtest.me")
+      ? "Local Docker"
+      : "Other"
+  );
+}
 
 /**
  * Admin connection string (connects to 'postgres' database for admin operations).
