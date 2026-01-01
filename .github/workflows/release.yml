@@ -49,6 +49,9 @@ jobs:
   verify:
     name: Verify
     uses: ./.github/workflows/verify.yml
+    secrets:
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
   # Run migrations before deployment
   migrate:
