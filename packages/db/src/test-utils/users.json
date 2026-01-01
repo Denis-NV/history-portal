@@ -1,0 +1,29 @@
+{
+  "users": {
+    "alice": {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "email": "alice@test.local",
+      "name": "Alice Test",
+      "role": "user"
+    },
+    "bob": {
+      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "email": "bob@test.local",
+      "name": "Bob Test",
+      "role": "user"
+    },
+    "carol": {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "email": "carol@test.local",
+      "name": "Carol Test",
+      "role": "user"
+    },
+    "admin": {
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "email": "admin@test.local",
+      "name": "Admin Test",
+      "role": "admin"
+    }
+  },
+  "password": "Test123!"
+}

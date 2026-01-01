@@ -14,8 +14,10 @@ export const LOCAL_DATABASE = "history_portal";
 
 /**
  * Database connection string.
+ * Priority: DATABASE_URL env var > local default
+ * - CI: DATABASE_URL set by test runner (Vitest/Playwright)
+ * - Cloud: Set via DATABASE_URL environment variable
  * - Local: Uses localtest.me domain (routed to Docker via neon-proxy)
- * - Cloud: Set via DATABASE_URL environment variable by Cloud Run
  */
 export const connectionString =
   process.env.DATABASE_URL ??

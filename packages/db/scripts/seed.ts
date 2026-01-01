@@ -1,8 +1,14 @@
 /**
  * Database Seed Script
  *
- * Seeds the database with initial data.
- * Uses Drizzle ORM inserts with onConflictDoNothing for idempotency.
+ * Seeds the database with test users and sample data.
+ * All data is generated programmatically from TEST_USERS constants.
+ *
+ * Test Users (all passwords: Test123!):
+ *   - alice@test.local (15 cards) - Primary dev/test user
+ *   - bob@test.local (10 cards) - Multi-user RLS tests
+ *   - carol@test.local (0 cards) - Empty state testing
+ *   - admin@test.local (0 cards) - Admin role
  *
  * Usage:
  *   pnpm seed                       # Seed using DATABASE_URL from .env.local
@@ -12,28 +18,31 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
 import { Pool as PgPool } from "pg";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { randomBytes } from "node:crypto";
 import { seed } from "drizzle-seed";
+import { scrypt as scryptSync } from "@noble/hashes/scrypt.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 import * as schema from "../src/schema";
 import { connectionString, isLocalDocker, isNeon } from "../src/config";
+import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Load Seed Data from JSON files
+// Password Hashing (Better Auth compatible - scrypt with exact parameters)
+// Better Auth uses @noble/hashes/scrypt with: N=16384, r=16, p=1, dkLen=64
 // ─────────────────────────────────────────────────────────────────────────────
 
-const seedDir = resolve(import.meta.dirname, "../seed");
-
-const seedUsers = JSON.parse(
-  readFileSync(resolve(seedDir, "users.json"), "utf-8")
-);
-
-const seedAccounts = JSON.parse(
-  readFileSync(resolve(seedDir, "accounts.json"), "utf-8")
-);
+function hashPassword(password: string): string {
+  const salt = bytesToHex(randomBytes(16));
+  const key = scryptSync(password.normalize("NFKC"), salt, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    dkLen: 64,
+  });
+  return `${salt}:${bytesToHex(key)}`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Database Client Setup
@@ -64,35 +73,54 @@ async function runSeed() {
   }
 
   try {
-    // Seed users first (accounts reference users)
-    console.log(`📝 Seeding ${seedUsers.length} user(s)...`);
-    for (const userData of seedUsers) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Seed Users from TEST_USERS constant
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const testUsers = Object.values(TEST_USERS);
+    console.log(`📝 Seeding ${testUsers.length} user(s)...`);
+
+    for (const user of testUsers) {
       await db
         .insert(schema.user)
         .values({
-          ...userData,
-          createdAt: new Date(userData.createdAt),
-          updatedAt: new Date(userData.updatedAt),
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          emailVerified: true,
+          role: user.role,
+          image: null,
         })
         .onConflictDoNothing();
     }
     console.log("   ✅ Users seeded");
 
-    // Seed accounts
-    console.log(`📝 Seeding ${seedAccounts.length} account(s)...`);
-    for (const accountData of seedAccounts) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Seed Accounts with hashed password
+    // ─────────────────────────────────────────────────────────────────────────
+
+    console.log(`📝 Seeding ${testUsers.length} account(s)...`);
+    console.log("   🔐 Hashing passwords...");
+
+    for (const user of testUsers) {
+      const hashedPassword = hashPassword(TEST_PASSWORD);
+      // Generate account ID: replace last segment with 0001...
+      const accountId = user.id.slice(0, -12) + "000000000001";
+
       await db
         .insert(schema.account)
         .values({
-          ...accountData,
-          accessTokenExpiresAt: accountData.accessTokenExpiresAt
-            ? new Date(accountData.accessTokenExpiresAt)
-            : null,
-          refreshTokenExpiresAt: accountData.refreshTokenExpiresAt
-            ? new Date(accountData.refreshTokenExpiresAt)
-            : null,
-          createdAt: new Date(accountData.createdAt),
-          updatedAt: new Date(accountData.updatedAt),
+          id: accountId,
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: hashedPassword,
+          accessToken: null,
+          refreshToken: null,
+          accessTokenExpiresAt: null,
+          refreshTokenExpiresAt: null,
+          scope: null,
+          idToken: null,
         })
         .onConflictDoNothing();
     }
@@ -101,40 +129,23 @@ async function runSeed() {
     // ─────────────────────────────────────────────────────────────────────────
     // Generate sample cards for test users
     // ─────────────────────────────────────────────────────────────────────────
+    // Alice: 15 cards (primary test user)
+    // Bob: 10 cards (for multi-user RLS tests)
+    // Carol: 0 cards (empty state testing)
+    // Admin: 0 cards (admin role testing)
+    // ─────────────────────────────────────────────────────────────────────────
 
     console.log("📝 Seeding sample cards...");
-
-    // Get user ID from JSON for linking cards
-    const testUserId = seedUsers[0].id;
-
-    // Fixed ID for the random test user (allows idempotent seeding)
-    const randomUserId = "11111111-1111-1111-1111-111111111111";
-
-    // Delete the random user if it exists (for clean re-seeding)
-    await db.delete(schema.user).where(eq(schema.user.id, randomUserId));
-
-    // Create the random test user
-    await db
-      .insert(schema.user)
-      .values({
-        id: randomUserId,
-        name: "Random Test User",
-        email: "random@example.com",
-        emailVerified: true,
-        role: "user",
-      })
-      .onConflictDoNothing();
-    console.log("   ✅ Random user seeded");
 
     // Clear existing cards for clean re-seeding (drizzle-seed uses deterministic IDs)
     await db.delete(schema.card);
 
-    // Generate random cards for JSON test user
+    // Generate cards for Alice (15 cards)
     await seed(db, { card: schema.card }).refine((f) => ({
       card: {
         count: 15,
         columns: {
-          userId: f.default({ defaultValue: testUserId }),
+          userId: f.default({ defaultValue: TEST_USERS.alice.id }),
           title: f.loremIpsum({ sentencesCount: 1 }),
           summary: f.loremIpsum({ sentencesCount: 2 }),
           startYear: f.int({ minValue: -3000, maxValue: 2020 }),
@@ -165,14 +176,14 @@ async function runSeed() {
         },
       },
     }));
-    console.log("   ✅ Cards seeded for test user (15)");
+    console.log("   ✅ Cards seeded for Alice (15)");
 
-    // Generate random cards for random user (use different seed to avoid ID collision)
+    // Generate cards for Bob (10 cards, different seed)
     await seed(db, { card: schema.card }, { seed: 12345 }).refine((f) => ({
       card: {
         count: 10,
         columns: {
-          userId: f.default({ defaultValue: randomUserId }),
+          userId: f.default({ defaultValue: TEST_USERS.bob.id }),
           title: f.loremIpsum({ sentencesCount: 1 }),
           summary: f.loremIpsum({ sentencesCount: 2 }),
           startYear: f.int({ minValue: -3000, maxValue: 2020 }),
@@ -203,7 +214,8 @@ async function runSeed() {
         },
       },
     }));
-    console.log("   ✅ Cards seeded for random user (10)");
+    console.log("   ✅ Cards seeded for Bob (10)");
+    console.log("   ℹ️  Carol and Admin have 0 cards (by design)");
 
     console.log("🎉 Database seeding complete!");
   } catch (error) {

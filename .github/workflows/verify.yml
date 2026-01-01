@@ -4,6 +4,11 @@
 # This workflow is designed to be:
 # 1. Required in branch protection (blocks PRs if failing)
 # 2. Called by release.yml before deploying
+#
+# Test strategy:
+# - Unit/integration tests and E2E tests run against ephemeral Neon branches
+# - Branch is created by test global setup, cleaned up by Playwright teardown
+# - Same flow works locally and in CI (no special CI handling needed)
 
 name: Verify
 
@@ -16,9 +21,12 @@ on:
   workflow_call:
 
 jobs:
-  verify:
+  lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    env:
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -26,7 +34,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        # Version is read from packageManager field in package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -45,11 +52,41 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Turborepo automatically caches task outputs
-      # See: https://turbo.build/repo/docs/crafting-your-repository/caching
       - name: Run linting
         run: pnpm turbo lint
 
-      # TODO: Add test target when tests are set up
-      # - name: Run tests
-      #   run: pnpm turbo test
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm -F @history-portal/portal exec playwright --version | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+
+      - name: Run unit/integration tests
+        run: pnpm turbo test
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm -F @history-portal/portal exec playwright install --with-deps
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm -F @history-portal/portal exec playwright install-deps
+
+      - name: Run E2E tests
+        run: pnpm -F @history-portal/portal test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: packages/portal/playwright-report/
+          retention-days: 7

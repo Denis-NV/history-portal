@@ -2,8 +2,8 @@
 
 > **Purpose:** This document captures all architectural decisions, technology choices, and implementation plans for a personal full-stack TypeScript web application hosted on GCP. It serves as context for AI assistants and future reference.
 
-**Last Updated:** December 21, 2025  
-**Project Status:** Phase 1 In Progress (Database ✅, Auth ✅)
+**Last Updated:** December 31, 2025  
+**Project Status:** Phase 1 In Progress (Database ✅, Auth ✅, CI/CD ✅)
 
 ---
 
@@ -542,7 +542,7 @@ Key components:
 
 - **PostgreSQL 17** — Local database on port 5432
 
-> **Note:** The Neon HTTP Proxy container is still in docker-compose.yml but is not used. Local development uses the standard `pg` driver for simplicity and reliability. The Neon serverless driver is only used in staging/production.
+Local development uses the standard `pg` driver. The Neon serverless driver is only used in staging/production.
 
 ### Development Workflow
 
@@ -603,10 +603,8 @@ The client auto-detects the environment and uses the appropriate driver:
 **Default Local Connection:**
 
 ```
-postgres://postgres:postgres@db.localtest.me:5432/history_portal
+postgres://postgres:postgres@localhost:5432/history_portal
 ```
-
-> **Note:** We use `db.localtest.me` instead of `localhost` because it resolves to `127.0.0.1` but allows the Neon HTTP proxy hostname matching to work correctly.
 
 ---
 
@@ -629,127 +627,97 @@ The database layer is fully implemented with:
 
 See: [packages/db/](../packages/db/)
 
-| File                                                      | Purpose                                      |
-| --------------------------------------------------------- | -------------------------------------------- |
-| [docker-compose.yml](../packages/db/docker-compose.yml)   | Local PostgreSQL                             |
-| [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                    |
-| [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config       |
-| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (HTTP + WebSocket)           |
-| [src/config.ts](../packages/db/src/config.ts)             | Connection string + isLocal detection        |
-| [src/schema/index.ts](../packages/db/src/schema/index.ts) | Database schema (empty, awaiting BetterAuth) |
+| File                                                      | Purpose                                     |
+| --------------------------------------------------------- | ------------------------------------------- |
+| [docker-compose.yml](../packages/db/docker-compose.yml)   | Local PostgreSQL                            |
+| [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                   |
+| [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config      |
+| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (HTTP + WebSocket)          |
+| [src/config.ts](../packages/db/src/config.ts)             | Connection string + isLocal detection       |
+| [src/rls.ts](../packages/db/src/rls.ts)                   | `withRLS()` and `withAdminAccess()` helpers |
+| [src/schema/index.ts](../packages/db/src/schema/index.ts) | Schema re-exports (auth, cards)             |
 
 ### Schema Management with Drizzle
 
-> **Note:** The schema file is currently empty, awaiting BetterAuth integration. Below is an example of what it will contain:
+The schema is organized in `packages/db/src/schema/`:
+
+| File                                           | Purpose                                                   |
+| ---------------------------------------------- | --------------------------------------------------------- |
+| [auth.ts](../packages/db/src/schema/auth.ts)   | Better Auth tables (user, session, account, verification) |
+| [cards.ts](../packages/db/src/schema/cards.ts) | Application-specific card/deck tables                     |
+| [index.ts](../packages/db/src/schema/index.ts) | Re-exports all schemas                                    |
+
+Example from `auth.ts`:
 
 ```typescript
-// packages/db/src/schema/index.ts (planned)
-import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
-
-// Better Auth required tables
-export const users = pgTable("users", {
+export const user = pgTable("user", {
   id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false),
-  name: text("name"),
+  emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
-  provider: text("provider").notNull(),
-  providerAccountId: text("provider_account_id").notNull(),
-  refreshToken: text("refresh_token"),
-  accessToken: text("access_token"),
-  expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Application-specific tables
-export const summaries = pgTable("summaries", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
-  inputText: text("input_text").notNull(),
-  summary: text("summary").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  role: text("role").notNull().default("user"), // "user" | "admin"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 ```
 
 ### Row-Level Security (RLS)
 
-> **Note:** RLS is a planned feature. Below is an example migration:
+RLS is implemented to ensure users can only access their own data. The implementation uses PostgreSQL's `SET LOCAL` to set `app.user_id` within transactions.
 
-```sql
--- migrations/0002_enable_rls.sql (planned)
+See:
 
--- Enable RLS on all tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE summaries ENABLE ROW LEVEL SECURITY;
+- [packages/db/src/rls.ts](../packages/db/src/rls.ts) — `withRLS()` and `withAdminAccess()` helpers
+- [packages/db/migrations/rls-policies.sql](../packages/db/migrations/rls-policies.sql) — RLS policy definitions
 
--- Users can only see their own data
-CREATE POLICY users_select_own ON users
-  FOR SELECT USING (id = current_setting('app.current_user_id')::uuid);
+Example usage:
 
--- Summaries policy
-CREATE POLICY summaries_select_own ON summaries
-  FOR SELECT USING (user_id = current_setting('app.current_user_id')::uuid);
+```typescript
+import { withRLS } from "@history-portal/db";
 
-CREATE POLICY summaries_insert_own ON summaries
-  FOR INSERT WITH CHECK (user_id = current_setting('app.current_user_id')::uuid);
+// All queries in this transaction are filtered by user ID
+const cards = await withRLS(userId, async (tx) => {
+  return tx.select().from(cardTable);
+});
 ```
 
 ### Integration Testing with Ephemeral Branches
 
-> **Note:** Ephemeral branch testing is a planned CI/CD feature. Below is an example implementation:
+Ephemeral Neon branches are used for E2E testing in CI. The script uses `neonctl` CLI:
 
-```typescript
-// scripts/create-test-branch.ts (planned)
-import { Neon } from "@neondatabase/serverless";
+```bash
+# Create ephemeral branch, seed it, and write .env.test
+pnpm exec tsx scripts/ephemeral-branch.ts create
 
-async function createTestBranch(runId: string) {
-  const neon = new Neon({ apiKey: process.env.NEON_API_KEY });
-
-  const branch = await neon.branches.create({
-    projectId: process.env.NEON_PROJECT_ID,
-    parentId: process.env.NEON_MAIN_BRANCH_ID,
-    name: `test-${runId}`,
-  });
-
-  return branch.connectionString;
-}
-
-async function deleteTestBranch(runId: string) {
-  const neon = new Neon({ apiKey: process.env.NEON_API_KEY });
-
-  await neon.branches.delete({
-    projectId: process.env.NEON_PROJECT_ID,
-    branchId: `test-${runId}`,
-  });
-}
+# Delete ephemeral branch and cleanup .env.test
+pnpm exec tsx scripts/ephemeral-branch.ts delete
 ```
+
+See [packages/db/scripts/ephemeral-branch.ts](../packages/db/scripts/ephemeral-branch.ts) for the implementation.
+
+**How it works:**
+
+1. Gets Neon project ID from Pulumi staging stack
+2. Creates a branch from `staging` with name `test-{timestamp}`
+3. Seeds the branch with test data
+4. Writes `DATABASE_URL` to `.env.test`
+5. Playwright's `webServer` sources `.env.test` before starting Next.js
+
+````
 
 ---
 
 ## 8. Authentication (Better Auth)
 
-> **Note:** Better Auth integration is planned for Phase 1. Below are example implementations.
+Better Auth is fully implemented with email/password and Google OAuth.
+
+See [packages/portal/src/lib/auth/](../packages/portal/src/lib/auth/) for the implementation.
 
 ### Configuration
 
 ```typescript
-// src/lib/auth.ts (planned)
+// src/lib/auth/index.tsx
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
@@ -784,7 +752,7 @@ export const auth = betterAuth({
 });
 
 export type Session = typeof auth.$Infer.Session;
-```
+````
 
 ### API Route Handler
 
@@ -1187,11 +1155,11 @@ function broadcastToRoom(roomId: string, message: any) {
 **Deliverables:**
 
 - [x] Next.js 16 project setup (App Router)
-- [ ] Better Auth integration
+- [x] Better Auth integration (email/password + Google OAuth)
 - [x] Drizzle ORM + Neon connection
 - [x] Docker Compose for local development
 - [x] Pulumi infrastructure (Cloud Run + Neon)
-- [ ] Basic CI/CD with GitHub Actions
+- [x] CI/CD with GitHub Actions (verify + release workflows)
 - [x] Staging environment deployed
 - [ ] Production environment
 
@@ -1205,11 +1173,15 @@ Cloud Run (Next.js) ──► Neon PostgreSQL (staging)
 
 **Completed:**
 
-- Local development with PostgreSQL 17 + Neon HTTP Proxy
+- Local development with PostgreSQL 17
 - `@history-portal/db` package with Drizzle ORM
 - Portal integration with `@history-portal/db`
 - Neon staging project via Pulumi (terraform-provider bridge)
 - Health check endpoint: `/api/health/db`
+- Better Auth with email/password and Google OAuth
+- RLS (Row-Level Security) with `withRLS()` helper
+- CI/CD: verify.yml (lint, types, tests) and release.yml (deploy)
+- E2E tests with ephemeral Neon branches
 
 **Estimated Time:** 1-2 weeks
 
@@ -1349,7 +1321,12 @@ Key features:
 
 ### GitHub Actions CI/CD
 
-> **Note:** CI/CD is planned. See [CI-CD.md](./CI-CD.md) for setup instructions when implemented.
+CI/CD is fully implemented with two workflows:
+
+- **verify.yml** — Runs on PR: lint, type-check, unit tests, E2E tests (with ephemeral Neon branch)
+- **release.yml** — Runs on push to main: deploys to staging via Pulumi
+
+See [CI-CD.md](./CI-CD.md) for detailed documentation.
 
 ---
 

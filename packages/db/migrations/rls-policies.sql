@@ -62,6 +62,24 @@ $$ LANGUAGE plpgsql STABLE;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Card Table RLS Policies
 -- ─────────────────────────────────────────────────────────────────────────────
--- TODO: Add RLS policies for card table
 -- Cards are private to their owner (user_id field)
+-- Admins can bypass RLS via is_app_admin() check
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- Enable RLS on card table
+ALTER TABLE card ENABLE ROW LEVEL SECURITY;
+
+-- Force RLS for table owner as well (important for testing)
+ALTER TABLE card FORCE ROW LEVEL SECURITY;
+
+-- Drop existing policy if it exists (idempotent)
+DROP POLICY IF EXISTS card_select_policy ON card;
+
+-- SELECT: Users can only see their own cards, admins can see all
+CREATE POLICY card_select_policy ON card
+  FOR SELECT
+  USING (
+    is_app_admin() OR user_id = current_app_user_id()
+  );
+
+-- TODO: Add INSERT, UPDATE, DELETE policies later
