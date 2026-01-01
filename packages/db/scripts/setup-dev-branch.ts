@@ -91,7 +91,6 @@ async function setupDevBranch() {
   console.log("\nNotes:");
   console.log("• This branch is created from staging's main branch");
   console.log("• Run `pnpm db:reset:local` to reset and run migrations");
-  console.log("• To use Docker instead, remove DATABASE_URL from .env.local");
   console.log("• Branch persists until you delete it (won't auto-delete)");
 }
 

@@ -15,9 +15,6 @@
     "./test-utils/users.json": "./src/test-utils/users.json"
   },
   "scripts": {
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
     "generate": "dotenv -e .env.local -- drizzle-kit generate",
     "migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "migrate:rls": "dotenv -e .env.local -- tsx scripts/migrate-rls.ts",
@@ -35,11 +32,9 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "@noble/hashes": "^2.0.1",
-    "@types/pg": "^8.16.0",
     "better-auth": "^1.4.7",
     "drizzle-orm": "^0.41.0",
-    "drizzle-seed": "^0.3.1",
-    "pg": "^8.16.3"
+    "drizzle-seed": "^0.3.1"
   },
   "devDependencies": {
     "@types/node": "^20",

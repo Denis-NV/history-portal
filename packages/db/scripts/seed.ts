@@ -17,15 +17,13 @@
 
 import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
-import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
-import { Pool as PgPool } from "pg";
 import { randomBytes } from "node:crypto";
 import { seed } from "drizzle-seed";
 import { scrypt as scryptSync } from "@noble/hashes/scrypt.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 
 import * as schema from "../src/schema";
-import { connectionString, isLocalDocker, isNeon } from "../src/config";
+import { connectionString } from "../src/config";
 import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,32 +43,14 @@ function hashPassword(password: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Database Client Setup
+// Database Client Setup (Neon Serverless)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runSeed() {
-  const envType = isLocalDocker
-    ? "local (Docker)"
-    : isNeon
-    ? "remote (Neon)"
-    : "unknown";
   console.log("🌱 Starting database seed...");
-  console.log(`   Environment: ${envType}`);
 
-  let db: ReturnType<typeof drizzleHttp> | ReturnType<typeof drizzlePg>;
-  let pool: InstanceType<typeof PgPool> | null = null;
-
-  if (isLocalDocker) {
-    const localConnectionString = connectionString.replace(
-      "db.localtest.me",
-      "localhost"
-    );
-    pool = new PgPool({ connectionString: localConnectionString });
-    db = drizzlePg(pool, { schema });
-  } else {
-    const sql = neon(connectionString);
-    db = drizzleHttp(sql, { schema });
-  }
+  const sql = neon(connectionString);
+  const db = drizzleHttp(sql, { schema });
 
   try {
     // ─────────────────────────────────────────────────────────────────────────
@@ -221,10 +201,6 @@ async function runSeed() {
   } catch (error) {
     console.error("❌ Seeding failed:", error);
     process.exit(1);
-  } finally {
-    if (pool) {
-      await pool.end();
-    }
   }
 }
 
