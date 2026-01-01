@@ -28,6 +28,8 @@ on:
       - "packages/db/**"
       # Trigger on infra changes (deploys even if app code unchanged)
       - "infra/**"
+      # Trigger on workflow changes
+      - ".github/workflows/**"
       # Trigger on root config changes that affect builds
       - "package.json"
       - "pnpm-lock.yaml"
