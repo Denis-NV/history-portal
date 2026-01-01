@@ -391,18 +391,6 @@ KEEP_TEST_BRANCH=1 pnpm test:e2e
 rm packages/db/.env.test
 ```
 
-### Local Docker Mode
-
-When `DATABASE_URL` is not set, tests run against local Docker (no ephemeral branch needed). This is faster for rapid local iteration:
-
-```bash
-# Ensure local Docker is running
-pnpm db:up
-
-# Run tests against local Docker
-unset DATABASE_URL && pnpm test
-```
-
 ---
 
 ## CI Integration

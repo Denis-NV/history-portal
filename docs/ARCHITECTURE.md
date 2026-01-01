@@ -87,7 +87,6 @@ history-portal/
 │   └── tsconfig.json
 ├── packages/                   # pnpm workspace packages
 │   ├── db/                     # Database package
-│   │   ├── docker-compose.yml  # Local PostgreSQL
 │   │   ├── drizzle.config.ts   # Drizzle Kit configuration
 │   │   ├── package.json
 │   │   ├── migrations/
@@ -208,7 +207,7 @@ pnpm add <pkg> -w                         # Add to root workspace
 | **LLM**              | Vertex AI (Gemini 1.5 Flash) | -       | Text summarization                      |
 | **Streaming**        | Server-Sent Events (SSE)     | -       | LLM response streaming                  |
 | **Real-time**        | Firebase Realtime Database   | -       | Chat (Phase 3)                          |
-| **Containerization** | Docker                       | -       | Local dev & Cloud Run deployment        |
+| **Containerization** | Docker                       | -       | Cloud Run deployment                    |
 
 ### Why These Choices?
 
@@ -317,27 +316,25 @@ pnpm add <pkg> -w                         # Add to root workspace
 │   ┌─────────────────────────────────────────────────────────────┐   │
 │   │                    Developer Machine                        │   │
 │   │                                                             │   │
-│   │   ┌─────────────────────┐   ┌─────────────────────────────┐ │   │
-│   │   │   Docker Compose    │   │      pnpm dev               │ │   │
-│   │   │                     │   │                             │ │   │
-│   │   │   ┌─────────────┐   │   │   Next.js Dev Server        │ │   │
-│   │   │   │  PostgreSQL │   │   │   http://localhost:3000     │ │   │
-│   │   │   │  :5432      │◄──┼───│                             │ │   │
-│   │   │   └─────────────┘   │   │   • Hot reload              │ │   │
-│   │   │                     │   │   • API routes              │ │   │
-│   │   │   ┌─────────────┐   │   │   • Better Auth             │ │   │
-│   │   │   │  Firebase   │   │   │                             │ │   │
-│   │   │   │  Emulator   │◄──┼───│   (Phase 3)                 │ │   │
-│   │   │   │  :9000      │   │   │                             │ │   │
-│   │   │   └─────────────┘   │   └─────────────────────────────┘ │   │
-│   │   │                     │                                   │   │
-│   │   └─────────────────────┘                                   │   │
+│   │   ┌─────────────────────────────────────────────────────┐   │   │
+│   │   │                  pnpm dev                           │   │   │
+│   │   │                                                     │   │   │
+│   │   │   Next.js Dev Server                                │   │   │
+│   │   │   http://localhost:3000                             │   │   │
+│   │   │                                                     │   │   │
+│   │   │   • Hot reload                                      │   │   │
+│   │   │   • API routes                                      │   │   │
+│   │   │   • Better Auth                                     │   │   │
+│   │   │                                                     │   │   │
+│   │   └─────────────────────────────────────────────────────┘   │   │
+│   │                          │                                  │   │
+│   │                          ▼                                  │   │
+│   │   ┌─────────────────────────────────────────────────────┐   │   │
+│   │   │              Neon Dev Branch                        │   │   │
+│   │   │   (DATABASE_URL from packages/db/.env.local)        │   │   │
+│   │   └─────────────────────────────────────────────────────┘   │   │
 │   │                                                             │   │
-│   │   Environment Variables:                                    │   │
-│   │   DATABASE_URL=postgresql://postgres:postgres@localhost:5432│   │
-│   │   VERTEX_AI_* (use real GCP credentials or mock)            │   │
-│   │                                                             │   │
-│   └─────────────────────────────────────────────────────────────┘   │
+│   └─────────────────────────────────────────────────────────┘   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -352,10 +349,10 @@ pnpm add <pkg> -w                         # Add to root workspace
 │   Pulumi Stacks              Neon Projects (Isolated)               │
 │   ─────────────              ────────────────────────               │
 │                                                                     │
-│   (local)                   ┌─────────────────┐                     │
-│   Docker Compose  ────────► │ PostgreSQL 17   │  (local Docker)     │
-│   pnpm db:up                │                 │                     │
-│                             └─────────────────┘                     │
+│   (local)                   ┌─────────────────────────────┐         │
+│   pnpm dev      ────────────│ Neon dev-{username} branch  │         │
+│                             │ (from staging project)      │         │
+│                             └─────────────────────────────┘         │
 │                                                                     │
 │   ┌─────────────┐           ┌─────────────────────────────┐         │
 │   │   staging   │──────────►│ history-portal-staging      │ ✅      │
@@ -532,23 +529,21 @@ pulumi destroy --stack test-$CI_RUN_ID --yes
 
 ## 6. Local Development
 
-### Docker Compose Configuration
+### Neon Dev Branch
 
-The database package includes a Docker Compose setup for local development.
+Local development uses a personal Neon branch from the staging project. This gives you:
 
-See: [packages/db/docker-compose.yml](../packages/db/docker-compose.yml)
-
-Key components:
-
-- **PostgreSQL 17** — Local database on port 5432
-
-Local development uses the standard `pg` driver. The Neon serverless driver is only used in staging/production.
+- Same database branching model as CI/CD
+- Isolated development environment per developer
+- No local database setup required
 
 ### Development Workflow
 
 ```bash
-# Start local database
-pnpm db:up
+# One-time: Create your dev branch
+pnpm db:setup:neon-dev
+
+# Add the output DATABASE_URL to packages/db/.env.local
 
 # Run Next.js development server
 pnpm dev:portal
@@ -561,9 +556,6 @@ pnpm db:migrate
 
 # Generate Drizzle migrations from schema changes
 pnpm db:generate
-
-# Stop local database
-pnpm db:down
 ```
 
 ### Database Client Configuration
@@ -577,34 +569,22 @@ Key exports:
 - **`db`** — Primary database client
 - **`dbPool`** — Pooled client for transactions
 
-#### Driver Selection
+#### Driver
 
-The client auto-detects the environment and uses the appropriate driver:
+All environments use the `@neondatabase/serverless` driver:
 
-| Environment            | Driver                     | Why                                              |
-| ---------------------- | -------------------------- | ------------------------------------------------ |
-| **Local**              | `pg` (node-postgres)       | Direct TCP connection, simpler and more reliable |
-| **Staging/Production** | `@neondatabase/serverless` | Optimized for serverless (HTTP + WebSocket)      |
-
-> **Trade-off:** Local development cannot use Neon database branching, but gains simplicity. For branch-based testing, use Neon's staging environment or CI integration with ephemeral branches.
+- **`db`** — HTTP client for simple queries (stateless, lower latency)
+- **`dbPool`** — WebSocket pool for transactions and interactive queries
 
 ### Environment Files
 
 ```bash
 # packages/db/.env.local (single source of truth for DATABASE_URL)
-# Not needed for local Docker! The db package has sensible defaults.
-# Only set DATABASE_URL if you want to connect to a remote Neon database.
-
-# DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
+# Run `pnpm db:setup:neon-dev` to create your dev branch and get the connection string
+DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
 ```
 
 > **Note:** The portal package loads `DATABASE_URL` from `packages/db/.env.local` via `next.config.ts`.
-
-**Default Local Connection:**
-
-```
-postgres://postgres:postgres@localhost:5432/history_portal
-```
 
 ---
 
@@ -616,10 +596,9 @@ The database layer is fully implemented with:
 
 | Component                | Status | Description                      |
 | ------------------------ | ------ | -------------------------------- |
-| Local Docker             | ✅     | PostgreSQL 17                    |
+| Neon Dev Branches        | ✅     | Personal dev branches for local  |
 | Drizzle ORM              | ✅     | v0.38.3 with snake_case naming   |
-| @neondatabase/serverless | ✅     | v0.10.4 (staging/prod only)      |
-| pg (node-postgres)       | ✅     | Local development driver         |
+| @neondatabase/serverless | ✅     | v0.10.4 (all environments)       |
 | Neon Staging             | ✅     | `history-portal-staging` project |
 | Health Endpoint          | ✅     | `/api/health/db`                 |
 
@@ -629,11 +608,10 @@ See: [packages/db/](../packages/db/)
 
 | File                                                      | Purpose                                     |
 | --------------------------------------------------------- | ------------------------------------------- |
-| [docker-compose.yml](../packages/db/docker-compose.yml)   | Local PostgreSQL                            |
 | [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                   |
 | [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config      |
 | [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (HTTP + WebSocket)          |
-| [src/config.ts](../packages/db/src/config.ts)             | Connection string + isLocal detection       |
+| [src/config.ts](../packages/db/src/config.ts)             | Connection string configuration             |
 | [src/rls.ts](../packages/db/src/rls.ts)                   | `withRLS()` and `withAdminAccess()` helpers |
 | [src/schema/index.ts](../packages/db/src/schema/index.ts) | Schema re-exports (auth, cards)             |
 
@@ -1157,7 +1135,7 @@ function broadcastToRoom(roomId: string, message: any) {
 - [x] Next.js 16 project setup (App Router)
 - [x] Better Auth integration (email/password + Google OAuth)
 - [x] Drizzle ORM + Neon connection
-- [x] Docker Compose for local development
+- [x] Neon dev branches for local development
 - [x] Pulumi infrastructure (Cloud Run + Neon)
 - [x] CI/CD with GitHub Actions (verify + release workflows)
 - [x] Staging environment deployed
@@ -1255,7 +1233,7 @@ Cloud Run (Next.js) ──► Neon PostgreSQL
 
 | Variable                         | Local           | Staging             | Prod             | Description           |
 | -------------------------------- | --------------- | ------------------- | ---------------- | --------------------- |
-| `DATABASE_URL`                   | Docker Postgres | Neon staging branch | Neon main branch | PostgreSQL connection |
+| `DATABASE_URL`                   | Neon dev branch | Neon staging branch | Neon main branch | PostgreSQL connection |
 | `BETTER_AUTH_SECRET`             | dev-secret      | Secret Manager      | Secret Manager   | Auth encryption key   |
 | `BETTER_AUTH_URL`                | localhost:3000  | staging URL         | prod URL         | Auth callback URL     |
 | `GCP_PROJECT_ID`                 | -               | project-id          | project-id       | GCP project           |

@@ -37,22 +37,21 @@ Local Development                    Cloud Infrastructure
              │                      │   │      Cloud Run          │   │
              ▼                      │   │   (Next.js Container)   │   │
 ┌─────────────────────────────┐     │   └───────────┬─────────────┘   │
-│  Database (choose one):     │     │               │                 │
-│  ├─ Docker PostgreSQL       │     │   ┌───────────▼─────────────┐   │
-│  │  (offline/isolated)      │     │   │      Neon Database      │   │
-│  └─ Neon dev-local branch   │     │   │   (Serverless Postgres) │   │
-│     (staging project)       │     │   └─────────────────────────┘   │
+│  Neon Dev Branch            │     │               │                 │
+│  (from staging project)     │     │   ┌───────────▼─────────────┐   │
+│                             │     │   │      Neon Database      │   │
+│                             │     │   │   (Serverless Postgres) │   │
 └─────────────────────────────┘     └─────────────────────────────────┘
 ```
 
 ### Environment Strategy
 
-| Environment | Pulumi Stack | Database                          | Purpose                     |
-| ----------- | ------------ | --------------------------------- | --------------------------- |
-| Local       | (none)       | Docker OR Neon `dev-local` branch | Development with hot reload |
-| Staging     | `staging`    | Neon Project (staging)            | Pre-production testing      |
-| Production  | `prod`       | Neon Project (prod)               | Live application            |
-| CI/CD       | (ephemeral)  | Neon Branch (from staging)        | Automated testing           |
+| Environment | Pulumi Stack | Database                     | Purpose                     |
+| ----------- | ------------ | ---------------------------- | --------------------------- |
+| Local       | (none)       | Neon `dev-{username}` branch | Development with hot reload |
+| Staging     | `staging`    | Neon Project (staging)       | Pre-production testing      |
+| Production  | `prod`       | Neon Project (prod)          | Live application            |
+| CI/CD       | (ephemeral)  | Neon Branch (from staging)   | Automated testing           |
 
 > **Note:** Staging and Production use separate Neon projects for complete isolation. CI/CD tests and local Neon development use branches from the staging project.
 
@@ -96,16 +95,9 @@ This approach:
 
 ## 3. Local Development
 
-The db package supports two modes for local development:
+Local development uses a personal Neon branch from the staging project.
 
-| Mode            | Use Case                                     | Connection String Domain        |
-| --------------- | -------------------------------------------- | ------------------------------- |
-| **Neon Branch** | Branch testing, same as CI/CD, always online | `*.neon.tech`                   |
-| **Docker**      | Offline work, isolated, full DB control      | `*.localtest.me` or `localhost` |
-
-### Option A: Neon Dev Branch (Recommended)
-
-This gives you the same branching capability locally that CI/CD uses:
+### Setting Up Your Dev Branch
 
 ```bash
 # One-time setup: Create a personal dev branch on staging
@@ -125,44 +117,26 @@ The script:
 
 - Same Neon branching model as CI/CD
 - Test branch-based migrations locally
-- No local Docker required
 - Each developer gets their own isolated branch
 
-### Option B: Docker PostgreSQL (Fallback)
-
-For offline development or full database isolation:
-
-```bash
-# Start Docker PostgreSQL
-pnpm db:start
-
-# Use the default .env DATABASE_URL (localtest.me)
-```
-
 ### Resetting the Database
-
-The `reset:local` script auto-detects your mode and acts accordingly:
 
 ```bash
 pnpm db:reset:local
 ```
 
-- **Neon mode**: Resets the branch via Neon API (preserves branch, recreates data)
-- **Docker mode**: Drops and recreates the database
+This clears all schemas and re-runs migrations for a clean slate.
 
-### Switching Modes
+### Environment Configuration
 
-To switch between modes, update `DATABASE_URL` in `packages/db/.env.local`:
+`packages/db/.env.local` is the single source of truth for `DATABASE_URL`:
 
 ```bash
-# Neon dev branch (default for online work)
+# Run `pnpm db:setup:neon-dev` to get this connection string
 DATABASE_URL=postgresql://...@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
-
-# Docker (for offline/isolated work) - comment out or delete the line
-# DATABASE_URL=...
 ```
 
-> **Note:** `packages/db/.env.local` is the single source of truth for `DATABASE_URL`. The portal package loads it via `next.config.ts`.
+> **Note:** The portal package loads `DATABASE_URL` from `packages/db/.env.local` via `next.config.ts`.
 
 ---
 
