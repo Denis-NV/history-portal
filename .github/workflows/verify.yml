@@ -63,9 +63,10 @@ jobs:
       - name: Get Playwright version
         id: playwright-version
         run: |
-          # Get version from package.json for consistent cache key
-          VERSION=$(node -p "require('./packages/portal/package.json').devDependencies['@playwright/test']")
+          # Get version from package.json, strip semver range prefix (^, ~)
+          VERSION=$(node -p "require('./packages/portal/package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Playwright version for cache: $VERSION"
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
