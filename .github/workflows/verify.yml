@@ -19,6 +19,11 @@ on:
 
   # Allow other workflows to call this one
   workflow_call:
+    secrets:
+      PULUMI_ACCESS_TOKEN:
+        required: true
+      NEON_API_KEY:
+        required: true
 
 jobs:
   lint-and-test:
