@@ -2,9 +2,7 @@
 // @history-portal/db
 // ─────────────────────────────────────────────────────────────────────────────
 // Database client and schema exports for the history-portal project.
-// Uses @neondatabase/serverless driver which works with both:
-// - Local PostgreSQL (via neon-proxy in Docker)
-// - Cloud Neon (staging/production)
+// Uses @neondatabase/serverless driver for all environments (local, CI, cloud).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Database clients
