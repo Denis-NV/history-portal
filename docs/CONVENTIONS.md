@@ -291,6 +291,26 @@ const data: CardsResponse = await response.json();
 | **Discoverability**         | Types co-located with routes          |
 | **Refactoring safety**      | Schema changes surface as type errors |
 
+### Dynamic Route Export
+
+API routes that import from `@history-portal/db` (directly or transitively) must include `export const dynamic = "force-dynamic"`:
+
+```typescript
+// src/app/api/health/db/route.ts
+import { db, sql } from "@history-portal/db";
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+export const GET = async () => {
+  // ...
+};
+```
+
+**Why:** During `next build` inside Docker, `DATABASE_URL` is not available (it's a runtime secret injected by Cloud Run). While the db clients are lazy-initialized via Proxy, routes without `dynamic` would still be pre-rendered — executing the handler and triggering a database connection attempt at build time.
+
+Routes that use `headers()` or `cookies()` (e.g., via `getSession()`) are auto-detected as dynamic by Next.js, but an explicit export makes the intent clear.
+
 ---
 
 ## 5. Database Seeding

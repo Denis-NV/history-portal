@@ -402,6 +402,8 @@ config:
 
 3. **Monorepo tracing:** Set `outputFileTracingRoot` to include workspace package imports in the standalone build.
 
+4. **Runtime secrets & lazy DB clients:** `DATABASE_URL` is injected by Cloud Run at runtime, not available during `next build`. The `@history-portal/db` package uses lazy-initialized Proxy wrappers so importing the module is safe at build time — the actual Neon connection is only created on first query. See [ARCHITECTURE.md - Lazy Initialization](./ARCHITECTURE.md#lazy-initialization).
+
 ### Configure Docker Authentication
 
 Before first deployment, authenticate Docker with Artifact Registry:

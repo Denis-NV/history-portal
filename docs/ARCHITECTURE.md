@@ -566,15 +566,20 @@ See: [packages/db/src/client.ts](../packages/db/src/client.ts)
 
 Key exports:
 
-- **`db`** — Primary database client
-- **`dbPool`** — Pooled client for transactions
+- **`db`** — HTTP client for simple queries (stateless, lower latency)
+- **`dbPool`** — WebSocket pool for transactions and interactive queries
 
 #### Driver
 
-All environments use the `@neondatabase/serverless` driver:
+All environments use the `@neondatabase/serverless` driver.
 
-- **`db`** — HTTP client for simple queries (stateless, lower latency)
-- **`dbPool`** — WebSocket pool for transactions and interactive queries
+#### Lazy Initialization
+
+Database clients are **lazy-initialized via Proxy**. Importing `@history-portal/db` does not create a database connection — the actual Neon client is created on first property access (e.g., `db.select()` or `dbPool.transaction()`).
+
+This is required because `DATABASE_URL` is a **runtime secret** injected by Cloud Run, not available during `next build` inside Docker. Without lazy init, any module that imports from `@history-portal/db` would crash at build time.
+
+The Proxy is transparent to consumers — `db.select().from(cards)` works exactly as if `db` were a regular Drizzle client.
 
 ### Environment Files
 
@@ -610,8 +615,8 @@ See: [packages/db/](../packages/db/)
 | --------------------------------------------------------- | ------------------------------------------- |
 | [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                   |
 | [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config      |
-| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (HTTP + WebSocket)          |
-| [src/config.ts](../packages/db/src/config.ts)             | Connection string configuration             |
+| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (lazy-initialized via Proxy) |
+| [src/config.ts](../packages/db/src/config.ts)             | Connection string (`getConnectionString()`)  |
 | [src/rls.ts](../packages/db/src/rls.ts)                   | `withRLS()` and `withAdminAccess()` helpers |
 | [src/schema/index.ts](../packages/db/src/schema/index.ts) | Schema re-exports (auth, cards)             |
 
