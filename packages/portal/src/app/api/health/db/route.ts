@@ -1,6 +1,8 @@
 import { db, sql } from "@history-portal/db";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Database health check endpoint
  * GET /api/health/db

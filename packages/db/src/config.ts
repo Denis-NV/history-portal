@@ -6,14 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Database connection string (Neon).
- * Must be set via DATABASE_URL environment variable.
- *
- * - Local: Set in packages/db/.env.local (Neon dev branch)
- * - CI: Set by test runner (ephemeral Neon branch)
- * - Cloud: Set via environment variable
+ * Get the database connection string, throwing if not set.
+ * Used by client.ts (lazy — only called on first query, not at import time).
  */
-export const connectionString = (() => {
+export function getConnectionString(): string {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
@@ -21,4 +17,10 @@ export const connectionString = (() => {
     );
   }
   return url;
-})();
+}
+
+/**
+ * Static connection string for CLI tools (drizzle.config.ts).
+ * These always run with dotenv so DATABASE_URL is guaranteed to be set.
+ */
+export const connectionString = process.env.DATABASE_URL ?? "";

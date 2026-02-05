@@ -3,7 +3,7 @@ import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzleWs } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 
-import { connectionString } from "./config";
+import { getConnectionString } from "./config";
 import * as schema from "./schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ import * as schema from "./schema";
 
 neonConfig.webSocketConstructor = ws;
 
+const connectionString = getConnectionString();
 const sql = neon(connectionString);
 const pool = new NeonPool({ connectionString });
 
