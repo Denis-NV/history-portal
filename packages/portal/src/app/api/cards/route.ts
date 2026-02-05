@@ -1,6 +1,8 @@
 import { card, user, withRLS, eq } from "@history-portal/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+
+export const dynamic = "force-dynamic";
 import type { CardsResponse } from "./types";
 
 /**
