@@ -131,7 +131,7 @@ export default defineConfig({
     // This ensures DATABASE_URL is set before Next.js compiles any code
     command: `
       pnpm exec tsx scripts/db/ephemeral-branch.ts create &&
-      set -a && . .env.test && set +a &&
+      set -a && . ./.env.test && set +a &&
       pnpm dev
     `,
     url: "http://localhost:3000",
