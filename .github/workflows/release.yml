@@ -1,9 +1,7 @@
 # Release workflow - deploys to staging on merge to main
 #
 # Strategy for change detection:
-# - Uses path filters for now (./packages/portal/**)
-# - When you add shared packages (utils, db), add their paths here
-# - Turborepo's dependency graph ensures correct build order
+# - Uses path filters to trigger on relevant changes
 #
 # Migration strategy:
 # - Migrations run BEFORE deploying new portal code
@@ -22,10 +20,12 @@ on:
   push:
     branches: [main]
     paths:
-      # Trigger on portal app changes
-      - "packages/portal/**"
-      # Trigger on shared packages
-      - "packages/db/**"
+      # Trigger on app source changes
+      - "src/**"
+      # Trigger on scripts and migrations
+      - "scripts/**"
+      - "drizzle/**"
+      - "migrations/**"
       # Trigger on infra changes (deploys even if app code unchanged)
       - "infra/**"
       # Trigger on workflow changes
@@ -33,7 +33,8 @@ on:
       # Trigger on root config changes that affect builds
       - "package.json"
       - "pnpm-lock.yaml"
-      - "turbo.json"
+      - "Dockerfile"
+      - "next.config.ts"
 
   # Allow manual trigger for debugging or force-deploy
   workflow_dispatch:
@@ -148,14 +149,6 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
-
-      - name: Cache Turborepo
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
 
       - name: Install dependencies
         run: |

@@ -88,19 +88,21 @@
 3. Install dependencies
 4. Install Pulumi CLI (for getting Neon project ID from staging stack)
 5. Authenticate with Neon
-6. Run linting (`pnpm turbo lint`)
-7. Run unit/integration tests (`pnpm turbo test`) - creates/deletes own ephemeral branch
-8. Install Playwright browsers
-9. Run E2E tests - creates/deletes own ephemeral branch
-10. Upload Playwright report on failure
+6. Run linting (`pnpm lint`)
+7. Run unit tests (`pnpm test`) - creates/deletes own ephemeral branch
+8. Run database tests (`pnpm test:db`) - creates/deletes own ephemeral branch
+9. Install Playwright browsers
+10. Run E2E tests - creates/deletes own ephemeral branch
+11. Upload Playwright report on failure
 
 **Ephemeral Branch Flow:**
 
 Each test runner creates and manages its own ephemeral branch independently:
 
 ```
-Vitest (unit/integration) → Creates branch → Runs tests → Deletes branch
-Playwright (E2E)          → Creates branch → Runs tests → Deletes branch
+Vitest (unit tests)    → Creates branch → Runs tests → Deletes branch
+Vitest (db tests)      → Creates branch → Runs tests → Deletes branch
+Playwright (E2E)       → Creates branch → Runs tests → Deletes branch
 ```
 
 Note: Playwright creates its branch in the webServer command (before Next.js starts)
@@ -115,9 +117,10 @@ to ensure DATABASE_URL is set before any code is compiled.
 **Triggers:**
 
 - Push to `main` branch with changes in:
-  - `packages/portal/**`
+  - `src/**`
+  - `src/db/**`, `scripts/**`, `drizzle/**`, `migrations/**`
   - `infra/**`
-  - `package.json`, `pnpm-lock.yaml`, `turbo.json`
+  - `package.json`, `pnpm-lock.yaml`
 - Manual trigger via `workflow_dispatch`
 
 **Jobs:**
@@ -302,8 +305,8 @@ If rollback runs (deployment failed after migrations):
 Common issues:
 
 - **Lockfile mismatch:** Ensure `.npmrc` is included in Docker build context
-- **Type errors:** Run `pnpm turbo build` locally before pushing
-- **Missing dependencies:** Check that all workspace packages are copied in Dockerfile
+- **Type errors:** Run `pnpm build` locally before pushing
+- **Missing dependencies:** Check package.json
 
 ---
 

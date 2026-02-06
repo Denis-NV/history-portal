@@ -10,7 +10,7 @@
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Monorepo Structure](#2-monorepo-structure)
+2. [Project Structure](#2-project-structure)
 3. [Technology Stack](#3-technology-stack)
 4. [Architecture Diagram](#4-architecture-diagram)
 5. [Infrastructure as Code (Pulumi)](#5-infrastructure-as-code-pulumi)
@@ -58,16 +58,9 @@ A personal, non-profit web application with the following core features:
 
 ---
 
-## 2. Monorepo Structure
+## 2. Project Structure
 
-This project uses a **pnpm workspace monorepo** with **Turborepo** for task orchestration.
-
-### Why Monorepo?
-
-- **Shared code** — Common utilities and types across packages
-- **Atomic changes** — Single PR can update multiple packages
-- **Consistent tooling** — Unified linting, testing, and build processes
-- **Simplified dependency management** — Single lockfile, hoisted dependencies
+This is a **single Next.js project** with a flat directory structure. The `infra/` directory is a separate standalone Pulumi project for infrastructure management.
 
 ### Directory Structure
 
@@ -77,7 +70,7 @@ history-portal/
 ├── docs/                       # Project documentation
 │   ├── ARCHITECTURE.md         # This file
 │   └── INFRASTRUCTURE.md       # Pulumi & GCP setup guide
-├── infra/                      # Pulumi infrastructure (NOT a workspace package)
+├── infra/                      # Pulumi infrastructure (separate standalone project)
 │   ├── Pulumi.yaml             # Pulumi project config
 │   ├── Pulumi.staging.yaml     # Staging stack config
 │   ├── Pulumi.prod.yaml        # Production stack config (future)
@@ -85,87 +78,80 @@ history-portal/
 │   ├── package.json            # Infra-specific dependencies
 │   ├── sdks/neon/              # Generated Neon SDK (terraform-provider)
 │   └── tsconfig.json
-├── packages/                   # pnpm workspace packages
-│   ├── db/                     # Database package
-│   │   ├── drizzle.config.ts   # Drizzle Kit configuration
-│   │   ├── package.json
-│   │   ├── migrations/
-│   │   │   └── rls-policies.sql  # RLS functions (manual, idempotent)
-│   │   ├── seed/               # Seed data (JSON files)
-│   │   │   ├── users.json      # User seed data
-│   │   │   └── accounts.json   # Account seed data
-│   │   ├── scripts/            # Database scripts
-│   │   │   ├── seed.ts         # Seed script
-│   │   │   ├── reset-local.ts  # Reset local database
-│   │   │   └── ...             # Other scripts
-│   │   └── src/
-│   │       ├── index.ts        # Re-exports (client, schema, config)
-│   │       ├── client.ts       # Drizzle clients (HTTP + WebSocket)
-│   │       ├── config.ts       # Connection string configuration
-│   │       ├── rls.ts          # withRLS() and withAdminAccess() helpers
-│   │       └── schema/
-│   │           ├── index.ts    # Schema re-exports
-│   │           └── auth.ts     # Better Auth tables (user, session, account, verification)
-│   ├── portal/                 # Next.js web application
-│   │   ├── src/
-│   │   │   ├── proxy.ts        # Route protection (cookie check)
-│   │   │   ├── app/            # App Router
-│   │   │   │   ├── api/
-│   │   │   │   │   ├── auth/[...all]/  # Better Auth API handler
-│   │   │   │   │   └── health/db/      # Database health endpoint
-│   │   │   │   ├── auth/       # Auth pages
-│   │   │   │   │   ├── sign-in/
-│   │   │   │   │   ├── sign-up/
-│   │   │   │   │   ├── forgot-password/
-│   │   │   │   │   └── reset-password/
-│   │   │   │   └── timeline/   # Protected route example
-│   │   │   ├── components/
-│   │   │   │   └── auth/       # Auth form components
-│   │   │   │       ├── actions.ts      # Server Actions
-│   │   │   │       ├── schemas.ts      # Zod validation schemas
-│   │   │   │       ├── sign-in-form.tsx
-│   │   │   │       ├── sign-up-form.tsx
-│   │   │   │       ├── forgot-password-form.tsx
-│   │   │   │       └── reset-password-form.tsx
-│   │   │   └── lib/
-│   │   │       └── auth/       # Auth configuration
-│   │   │           ├── index.tsx       # Better Auth server config
-│   │   │           ├── client.ts       # Client-side auth (social login)
-│   │   │           ├── session.ts      # getSession(), requireSession()
-│   │   │           └── email-template.tsx  # Custom email template
-│   │   ├── Dockerfile          # Multi-stage build (includes db package)
-│   │   ├── package.json
-│   │   └── next.config.ts
-│   └── utils/                  # Shared utilities (future)
-├── package.json                # Root package.json with workspace scripts
-├── pnpm-workspace.yaml         # Workspace package definitions
-├── pnpm-lock.yaml              # Single lockfile for all packages
-└── turbo.json                  # Turborepo task configuration
+├── migrations/                 # Drizzle database migrations
+│   └── rls-policies.sql        # RLS functions (manual, idempotent)
+├── scripts/                    # Project scripts
+│   └── db/                     # Database scripts
+│       ├── seed.ts             # Seed script
+│       ├── reset-local.ts      # Reset local database
+│       └── ...                 # Other scripts
+├── seed/                       # Seed data (JSON files)
+│   ├── users.json              # User seed data
+│   └── accounts.json           # Account seed data
+├── src/
+│   ├── proxy.ts                # Route protection (cookie check)
+│   ├── app/                    # App Router
+│   │   ├── api/
+│   │   │   ├── auth/[...all]/  # Better Auth API handler
+│   │   │   └── health/db/      # Database health endpoint
+│   │   ├── auth/               # Auth pages
+│   │   │   ├── sign-in/
+│   │   │   ├── sign-up/
+│   │   │   ├── forgot-password/
+│   │   │   └── reset-password/
+│   │   └── timeline/           # Protected route example
+│   ├── components/
+│   │   └── auth/               # Auth form components
+│   │       ├── actions.ts      # Server Actions
+│   │       ├── schemas.ts      # Zod validation schemas
+│   │       ├── sign-in-form.tsx
+│   │       ├── sign-up-form.tsx
+│   │       ├── forgot-password-form.tsx
+│   │       └── reset-password-form.tsx
+│   ├── db/                     # Database layer
+│   │   ├── index.ts            # Re-exports (client, schema, config)
+│   │   ├── client.ts           # Drizzle clients (HTTP + WebSocket)
+│   │   ├── config.ts           # Connection string configuration
+│   │   ├── rls.ts              # withRLS() and withAdminAccess() helpers
+│   │   └── schema/
+│   │       ├── index.ts        # Schema re-exports
+│   │       └── auth.ts         # Better Auth tables (user, session, account, verification)
+│   └── lib/
+│       └── auth/               # Auth configuration
+│           ├── index.tsx        # Better Auth server config
+│           ├── client.ts        # Client-side auth (social login)
+│           ├── session.ts       # getSession(), requireSession()
+│           └── email-template.tsx  # Custom email template
+├── Dockerfile                  # Single-project Docker build
+├── drizzle.config.ts           # Drizzle Kit configuration
+├── package.json                # Project dependencies and scripts
+├── pnpm-lock.yaml              # Lockfile
+└── next.config.ts              # Next.js configuration
 ```
 
 ### Key Configuration Files
 
 See the actual configuration files for current values:
 
-- [package.json](../package.json) — Root workspace scripts and dependencies
-- [pnpm-workspace.yaml](../pnpm-workspace.yaml) — Workspace package definitions
-- [turbo.json](../turbo.json) — Turborepo task configuration
+- [package.json](../package.json) — Project scripts and dependencies
+- [drizzle.config.ts](../drizzle.config.ts) — Drizzle Kit configuration
+- [next.config.ts](../next.config.ts) — Next.js configuration
 
-### Why `infra/` is NOT a Workspace Package
+### Why `infra/` is a Separate Project
 
-The `infra/` folder is at the root level but not included in `pnpm-workspace.yaml` because:
+The `infra/` folder is a standalone Pulumi project at the root level, separate from the main Next.js project:
 
-1. **Different lifecycle** — Pulumi has its own CLI, not pnpm/Turbo tasks
-2. **Separate dependencies** — Infra needs `@pulumi/gcp`, apps don't
-3. **No exports** — Infrastructure code doesn't export modules for other packages
-4. **Industry convention** — Most monorepos place infra at root level
+1. **Different lifecycle** — Pulumi has its own CLI, not pnpm scripts
+2. **Separate dependencies** — Infra needs `@pulumi/gcp`, the app doesn't
+3. **No exports** — Infrastructure code doesn't export modules for the app
+4. **Industry convention** — Infrastructure code is typically separate from application code
 
 ### Common Commands
 
 ```bash
 # Development
 pnpm dev:portal              # Start Next.js dev server
-pnpm check-types             # Type-check all packages
+pnpm check-types             # Type-check the project
 
 # Database (local development)
 pnpm db:up                   # Start local PostgreSQL + Neon proxy
@@ -183,9 +169,7 @@ pnpm infra:up:staging        # Deploy to staging
 pnpm infra:up:prod           # Deploy to production
 
 # Package management
-pnpm add <pkg> -F @history-portal/portal  # Add to portal
-pnpm add <pkg> -F @history-portal/db      # Add to db
-pnpm add <pkg> -w                         # Add to root workspace
+pnpm add <pkg>               # Add a dependency
 ```
 
 ---
@@ -196,8 +180,7 @@ pnpm add <pkg> -w                         # Add to root workspace
 
 | Layer                | Technology                   | Version | Purpose                                 |
 | -------------------- | ---------------------------- | ------- | --------------------------------------- |
-| **Monorepo**         | pnpm workspaces              | 10.x    | Package management & workspaces         |
-| **Build System**     | Turborepo                    | 2.x     | Task orchestration & caching            |
+| **Package Manager**  | pnpm                         | 10.x    | Dependency management                   |
 | **IaC**              | Pulumi                       | 3.x     | Infrastructure as Code (TypeScript)     |
 | **Compute**          | Cloud Run                    | -       | Serverless container hosting            |
 | **Framework**        | Next.js                      | 16.x    | Full-stack React framework (App Router) |
@@ -331,7 +314,7 @@ pnpm add <pkg> -w                         # Add to root workspace
 │   │                          ▼                                  │   │
 │   │   ┌─────────────────────────────────────────────────────┐   │   │
 │   │   │              Neon Dev Branch                        │   │   │
-│   │   │   (DATABASE_URL from packages/db/.env.local)        │   │   │
+│   │   │   (DATABASE_URL from .env.local)        │   │   │
 │   │   └─────────────────────────────────────────────────────┘   │   │
 │   │                                                             │   │
 │   └─────────────────────────────────────────────────────────┘   │
@@ -543,7 +526,7 @@ Local development uses a personal Neon branch from the staging project. This giv
 # One-time: Create your dev branch
 pnpm db:setup:neon-dev
 
-# Add the output DATABASE_URL to packages/db/.env.local
+# Add the output DATABASE_URL to .env.local
 
 # Run Next.js development server
 pnpm dev:portal
@@ -560,9 +543,9 @@ pnpm db:generate
 
 ### Database Client Configuration
 
-The `@history-portal/db` package exports pre-configured Drizzle clients.
+The `@/db` module exports pre-configured Drizzle clients.
 
-See: [packages/db/src/client.ts](../packages/db/src/client.ts)
+See: [src/db/client.ts](../src/db/client.ts)
 
 Key exports:
 
@@ -575,21 +558,19 @@ All environments use the `@neondatabase/serverless` driver.
 
 #### Lazy Initialization
 
-Database clients are **lazy-initialized via Proxy**. Importing `@history-portal/db` does not create a database connection — the actual Neon client is created on first property access (e.g., `db.select()` or `dbPool.transaction()`).
+Database clients are **lazy-initialized via Proxy**. Importing `@/db` does not create a database connection — the actual Neon client is created on first property access (e.g., `db.select()` or `dbPool.transaction()`).
 
-This is required because `DATABASE_URL` is a **runtime secret** injected by Cloud Run, not available during `next build` inside Docker. Without lazy init, any module that imports from `@history-portal/db` would crash at build time.
+This is required because `DATABASE_URL` is a **runtime secret** injected by Cloud Run, not available during `next build` inside Docker. Without lazy init, any module that imports from `@/db` would crash at build time.
 
 The Proxy is transparent to consumers — `db.select().from(cards)` works exactly as if `db` were a regular Drizzle client.
 
 ### Environment Files
 
 ```bash
-# packages/db/.env.local (single source of truth for DATABASE_URL)
+# .env.local (single source of truth for DATABASE_URL)
 # Run `pnpm db:setup:neon-dev` to create your dev branch and get the connection string
 DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
 ```
-
-> **Note:** The portal package loads `DATABASE_URL` from `packages/db/.env.local` via `next.config.ts`.
 
 ---
 
@@ -607,28 +588,28 @@ The database layer is fully implemented with:
 | Neon Staging             | ✅     | `history-portal-staging` project |
 | Health Endpoint          | ✅     | `/api/health/db`                 |
 
-### Package Structure
+### Database Layer Structure
 
-See: [packages/db/](../packages/db/)
+See: [src/db/](../src/db/)
 
-| File                                                      | Purpose                                     |
-| --------------------------------------------------------- | ------------------------------------------- |
-| [drizzle.config.ts](../packages/db/drizzle.config.ts)     | Drizzle Kit configuration                   |
-| [src/index.ts](../packages/db/src/index.ts)               | Re-exports: db, dbPool, schema, config      |
-| [src/client.ts](../packages/db/src/client.ts)             | Drizzle clients (lazy-initialized via Proxy) |
-| [src/config.ts](../packages/db/src/config.ts)             | Connection string (`getConnectionString()`)  |
-| [src/rls.ts](../packages/db/src/rls.ts)                   | `withRLS()` and `withAdminAccess()` helpers |
-| [src/schema/index.ts](../packages/db/src/schema/index.ts) | Schema re-exports (auth, cards)             |
+| File                                                  | Purpose                                     |
+| ----------------------------------------------------- | ------------------------------------------- |
+| [drizzle.config.ts](../drizzle.config.ts)             | Drizzle Kit configuration                   |
+| [src/db/index.ts](../src/db/index.ts)                 | Re-exports: db, dbPool, schema, config      |
+| [src/db/client.ts](../src/db/client.ts)               | Drizzle clients (lazy-initialized via Proxy) |
+| [src/db/config.ts](../src/db/config.ts)               | Connection string (`getConnectionString()`)  |
+| [src/db/rls.ts](../src/db/rls.ts)                     | `withRLS()` and `withAdminAccess()` helpers |
+| [src/db/schema/index.ts](../src/db/schema/index.ts)   | Schema re-exports (auth, cards)             |
 
 ### Schema Management with Drizzle
 
-The schema is organized in `packages/db/src/schema/`:
+The schema is organized in `src/db/schema/`:
 
 | File                                           | Purpose                                                   |
 | ---------------------------------------------- | --------------------------------------------------------- |
-| [auth.ts](../packages/db/src/schema/auth.ts)   | Better Auth tables (user, session, account, verification) |
-| [cards.ts](../packages/db/src/schema/cards.ts) | Application-specific card/deck tables                     |
-| [index.ts](../packages/db/src/schema/index.ts) | Re-exports all schemas                                    |
+| [auth.ts](../src/db/schema/auth.ts)            | Better Auth tables (user, session, account, verification) |
+| [cards.ts](../src/db/schema/cards.ts)          | Application-specific card/deck tables                     |
+| [index.ts](../src/db/schema/index.ts)          | Re-exports all schemas                                    |
 
 Example from `auth.ts`:
 
@@ -651,13 +632,13 @@ RLS is implemented to ensure users can only access their own data. The implement
 
 See:
 
-- [packages/db/src/rls.ts](../packages/db/src/rls.ts) — `withRLS()` and `withAdminAccess()` helpers
-- [packages/db/migrations/rls-policies.sql](../packages/db/migrations/rls-policies.sql) — RLS policy definitions
+- [src/db/rls.ts](../src/db/rls.ts) — `withRLS()` and `withAdminAccess()` helpers
+- [migrations/rls-policies.sql](../migrations/rls-policies.sql) — RLS policy definitions
 
 Example usage:
 
 ```typescript
-import { withRLS } from "@history-portal/db";
+import { withRLS } from "@/db";
 
 // All queries in this transaction are filtered by user ID
 const cards = await withRLS(userId, async (tx) => {
@@ -677,7 +658,7 @@ pnpm exec tsx scripts/ephemeral-branch.ts create
 pnpm exec tsx scripts/ephemeral-branch.ts delete
 ```
 
-See [packages/db/scripts/ephemeral-branch.ts](../packages/db/scripts/ephemeral-branch.ts) for the implementation.
+See [scripts/db/ephemeral-branch.ts](../scripts/db/ephemeral-branch.ts) for the implementation.
 
 **How it works:**
 
@@ -695,7 +676,7 @@ See [packages/db/scripts/ephemeral-branch.ts](../packages/db/scripts/ephemeral-b
 
 Better Auth is fully implemented with email/password and Google OAuth.
 
-See [packages/portal/src/lib/auth/](../packages/portal/src/lib/auth/) for the implementation.
+See [src/lib/auth/](../src/lib/auth/) for the implementation.
 
 ### Configuration
 
@@ -1157,8 +1138,7 @@ Cloud Run (Next.js) ──► Neon PostgreSQL (staging)
 **Completed:**
 
 - Local development with PostgreSQL 17
-- `@history-portal/db` package with Drizzle ORM
-- Portal integration with `@history-portal/db`
+- Database layer (`src/db/`) with Drizzle ORM
 - Neon staging project via Pulumi (terraform-provider bridge)
 - Health check endpoint: `/api/health/db`
 - Better Auth with email/password and Google OAuth
@@ -1288,17 +1268,17 @@ export function createSecrets(neonConnectionString: pulumi.Output<string>) {
 
 ### Dockerfile
 
-See: [packages/portal/Dockerfile](../packages/portal/Dockerfile)
+See: [Dockerfile](../Dockerfile)
 
-The Dockerfile uses a multi-stage build optimized for pnpm workspaces:
+The Dockerfile uses a multi-stage build for the single Next.js project:
 
 1. **deps** — Install dependencies with frozen lockfile
-2. **builder** — Build the Next.js app (includes `@history-portal/db`)
+2. **builder** — Build the Next.js app
 3. **runner** — Production image with standalone output
 
 Key features:
 
-- Copies workspace packages (`packages/db`) for monorepo builds
+- Simple single-project build (no workspace package copying needed)
 - Uses `output: "standalone"` for minimal image size
 - Runs as non-root user for security
 

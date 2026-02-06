@@ -1,12 +1,8 @@
 # Dependencies
 node_modules
-**/node_modules
 
 # Build outputs
 .next
-**/.next
-.turbo
-**/.turbo
 
 # Git
 .git
@@ -34,7 +30,11 @@ Thumbs.db
 **/*.spec.ts
 **/*.spec.tsx
 __tests__
+e2e/
 
-# Infra (not needed for portal build)
+# Not needed for portal build
 infra/
 docs/
+scripts/
+drizzle/
+migrations/

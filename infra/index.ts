@@ -66,8 +66,8 @@ const image = new docker.Image(
   {
     imageName: imageName,
     build: {
-      context: "..", // Root of monorepo (relative to infra/)
-      dockerfile: "../packages/portal/Dockerfile",
+      context: "..", // Project root (relative to infra/)
+      dockerfile: "../Dockerfile",
       platform: "linux/amd64", // Cloud Run requires linux/amd64
     },
     registry: {

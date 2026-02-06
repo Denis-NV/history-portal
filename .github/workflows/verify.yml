@@ -46,25 +46,26 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "pnpm"
 
-      - name: Cache Turborepo
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Run linting
-        run: pnpm turbo lint
+        run: pnpm lint
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+
+      - name: Run database tests
+        run: pnpm test:db
 
       - name: Get Playwright version
         id: playwright-version
         run: |
           # Get version from package.json, strip semver range prefix (^, ~)
-          VERSION=$(node -p "require('./packages/portal/package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
+          VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Playwright version for cache: $VERSION"
 
@@ -75,27 +76,21 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@v6
-
-      - name: Run unit/integration tests
-        run: pnpm turbo test
-
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm -F @history-portal/portal exec playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
 
       - name: Install Playwright deps (cached browsers)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm -F @history-portal/portal exec playwright install-deps
+        run: pnpm exec playwright install-deps
 
       - name: Run E2E tests
-        run: pnpm -F @history-portal/portal test:e2e
+        run: pnpm test:e2e
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
-          path: packages/portal/playwright-report/
+          path: playwright-report/
           retention-days: 7
