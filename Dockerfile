@@ -32,7 +32,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source and config files
 COPY src ./src
 COPY public ./public
-COPY next.config.ts tsconfig.json package.json ./
+COPY next.config.ts tsconfig.json postcss.config.mjs package.json ./
 
 # Build the app
 ENV NEXT_TELEMETRY_DISABLED=1
