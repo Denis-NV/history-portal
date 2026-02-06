@@ -4,7 +4,6 @@ A personal full-stack TypeScript web application for exploring historical timeli
 
 ## Tech Stack
 
-- **Monorepo:** pnpm workspaces + Turborepo
 - **Frontend:** Next.js 16 (App Router)
 - **Database:** Neon (Serverless PostgreSQL) + Drizzle ORM
 - **Auth:** Better Auth
@@ -29,7 +28,7 @@ pnpm install
 # One-time: Create your Neon dev branch and get connection string
 pnpm db:setup:neon-dev
 
-# Add the output DATABASE_URL to packages/db/.env.local
+# Add the output DATABASE_URL to .env.local
 # Then reset and run migrations
 pnpm db:reset:local
 ```
@@ -37,7 +36,7 @@ pnpm db:reset:local
 #### Start Development
 
 ```bash
-pnpm dev:portal
+pnpm dev
 ```
 
 The app will be available at [http://localhost:3000](http://localhost:3000).
@@ -45,8 +44,11 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 ### Common Commands
 
 ```bash
-pnpm dev:portal            # Start Next.js dev server
-pnpm check-types           # Type-check all packages
+pnpm dev                   # Start Next.js dev server
+pnpm check-types           # Type-check
+pnpm test                  # Unit/integration tests
+pnpm test:db               # Database/RLS tests
+pnpm test:e2e              # E2E tests
 pnpm infra:up:staging      # Deploy to staging
 pnpm infra:up:prod         # Deploy to production
 ```
@@ -55,14 +57,20 @@ pnpm infra:up:prod         # Deploy to production
 
 ```
 history-portal/
-├── docs/               # Documentation
-├── infra/              # Pulumi infrastructure (GCP)
-├── packages/
-│   ├── db/             # Database schema & migrations
-│   └── portal/         # Next.js web application
-├── package.json        # Root workspace config
-├── pnpm-workspace.yaml # Workspace definitions
-└── turbo.json          # Turborepo config
+├── src/
+│   ├── app/               # Next.js App Router pages & API routes
+│   ├── components/         # React components
+│   ├── db/                 # Database layer (schema, RLS, migrations)
+│   └── lib/                # Shared utilities & auth
+├── scripts/db/             # Database scripts (seed, reset, migrations)
+├── drizzle/                # Drizzle migration journal
+├── migrations/             # SQL migrations (including RLS)
+├── e2e/                    # Playwright E2E tests
+├── public/                 # Static assets
+├── infra/                  # Pulumi infrastructure (GCP)
+├── docs/                   # Documentation
+├── package.json            # Dependencies & scripts
+└── Dockerfile              # Production container
 ```
 
 ## Documentation

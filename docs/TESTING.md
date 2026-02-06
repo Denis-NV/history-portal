@@ -21,12 +21,12 @@ This document outlines the testing strategy, conventions, and setup for the Hist
 
 ## Test Stack
 
-| Tool                                             | Purpose                  | Package(s)     |
-| ------------------------------------------------ | ------------------------ | -------------- |
-| [Vitest](https://vitest.dev/)                    | Unit & integration tests | `db`, `portal` |
-| [Testing Library](https://testing-library.com/)  | Component testing        | `portal`       |
-| [happy-dom](https://github.com/nickvr/happy-dom) | DOM environment          | `portal`       |
-| [Playwright](https://playwright.dev/)            | E2E browser tests        | `portal`       |
+| Tool                                             | Purpose                  |
+| ------------------------------------------------ | ------------------------ |
+| [Vitest](https://vitest.dev/)                    | Unit & integration tests |
+| [Testing Library](https://testing-library.com/)  | Component testing        |
+| [happy-dom](https://github.com/nickvr/happy-dom) | DOM environment          |
+| [Playwright](https://playwright.dev/)            | E2E browser tests        |
 
 ---
 
@@ -35,41 +35,41 @@ This document outlines the testing strategy, conventions, and setup for the Hist
 ### All Tests
 
 ```bash
-# Run all unit/integration tests across packages
+# Run all unit/integration tests
 pnpm test
 
 # Run all E2E tests
 pnpm test:e2e
 ```
 
-### Package-Specific Tests
+### Specific Tests
 
 ```bash
-# Database package tests (RLS policies, etc.)
-pnpm -F @history-portal/db test
+# Database tests (RLS policies, etc.)
+pnpm test:db
 
-# Portal package tests (components, utils)
-pnpm -F @history-portal/portal test
+# Unit/integration tests (components, utils)
+pnpm test
 
 # E2E tests with UI
-pnpm -F @history-portal/portal test:e2e:ui
+pnpm test:e2e:ui
 ```
 
 ### Watch Mode (Development)
 
 ```bash
 # Watch mode for database tests
-pnpm -F @history-portal/db test:watch
+pnpm test:db:watch
 
-# Watch mode for portal tests
-pnpm -F @history-portal/portal test:watch
+# Watch mode for unit/integration tests
+pnpm test:watch
 ```
 
 ---
 
 ## Test Data & Users
 
-All tests use a consistent set of test users defined in `packages/db/src/test-utils/users.ts`:
+All tests use a consistent set of test users defined in `src/db/test-utils/users.ts`:
 
 | User  | Email            | Role  | Cards | Purpose                     |
 | ----- | ---------------- | ----- | ----- | --------------------------- |
@@ -92,11 +92,11 @@ Test user IDs use predictable patterns for easy reference:
 ### Importing Test Users
 
 ```typescript
-// In database package tests
-import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
+// In database tests
+import { TEST_USERS, TEST_PASSWORD } from "../src/db/test-utils/users";
 
-// In Vitest (portal package) - uses package export
-import { TEST_USERS } from "@history-portal/db/test-utils";
+// In Vitest (unit/integration tests) - uses path alias
+import { TEST_USERS } from "@/db/test-utils";
 
 // In E2E tests - uses JSON export (Node.js compatible)
 import { TEST_USERS, TEST_PASSWORD } from "../test-users";
@@ -106,18 +106,18 @@ import { TEST_USERS, TEST_PASSWORD } from "../test-users";
 
 ## Vitest Configuration
 
-### Database Package (`packages/db`)
+### Database Tests
 
-- **Config:** `packages/db/vitest.config.ts`
+- **Config:** `vitest.db.config.ts`
 - **Sequential execution:** `fileParallelism: false` ensures RLS tests run sequentially
 - **No DOM:** Tests run in Node environment
-- **Setup:** `packages/db/src/test-utils/setup.ts`
+- **Setup:** `src/db/test-utils/setup.ts`
 
-### Portal Package (`packages/portal`)
+### Unit/Integration Tests
 
-- **Config:** `packages/portal/vitest.config.mts` (`.mts` for ESM)
+- **Config:** `vitest.config.mts` (`.mts` for ESM)
 - **DOM:** Uses `happy-dom` environment
-- **Setup:** `packages/portal/vitest.setup.ts` (imports `@testing-library/jest-dom`)
+- **Setup:** `vitest.setup.ts` (imports `@testing-library/jest-dom`)
 - **Path aliases:** Configured to match `tsconfig.json`
 
 ---
@@ -176,7 +176,7 @@ pnpm exec playwright test --headed
 ### Unit Tests (Pure Functions)
 
 ```typescript
-// packages/portal/src/lib/utils.test.ts
+// src/lib/utils.test.ts
 import { describe, it, expect } from "vitest";
 import { formatDate } from "./utils";
 
@@ -194,7 +194,7 @@ describe("formatDate", () => {
 ### Component Tests
 
 ```typescript
-// packages/portal/src/components/my-component/my-component.test.tsx
+// src/components/my-component/my-component.test.tsx
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MyComponent } from "./my-component";
@@ -215,7 +215,7 @@ describe("MyComponent", () => {
 ### RLS/Database Tests
 
 ```typescript
-// packages/db/src/rls.test.ts
+// src/db/rls.test.ts
 import { describe, it, expect } from "vitest";
 import { withRLS } from "./rls";
 import { db } from "./client";
@@ -236,7 +236,7 @@ describe("RLS Policies", () => {
 ### E2E Tests
 
 ```typescript
-// packages/portal/e2e/timeline.spec.ts
+// e2e/timeline.spec.ts
 import { test, expect } from "./fixtures";
 
 test.describe("Timeline", () => {
@@ -287,17 +287,14 @@ test.describe("Timeline", () => {
 ### Test Organization
 
 ```
-packages/db/
 ├── src/
-│   ├── rls.ts           # Source file
-│   ├── rls.test.ts      # Test file (colocated)
-│   └── test-utils/      # Test utilities
-│       ├── users.ts
-│       ├── auth.ts
-│       └── index.ts
-
-packages/portal/
-├── src/
+│   ├── db/
+│   │   ├── rls.ts           # Source file
+│   │   ├── rls.test.ts      # Test file (colocated)
+│   │   └── test-utils/      # Test utilities
+│   │       ├── users.ts
+│   │       ├── auth.ts
+│   │       └── index.ts
 │   ├── lib/
 │   │   ├── utils.ts
 │   │   └── utils.test.ts
@@ -305,14 +302,14 @@ packages/portal/
 │       └── sign-out-button/
 │           ├── sign-out-button.tsx
 │           └── sign-out-button.test.tsx
-└── e2e/
-    ├── auth.setup.ts      # Auth setup project
-    ├── fixtures.ts        # Custom test fixtures
-    ├── global-setup.ts    # Loads DATABASE_URL from .env.test
-    ├── global-teardown.ts # Deletes ephemeral branch
-    ├── test-users.ts      # Test user data
-    └── tests/
-        └── timeline.spec.ts  # E2E test specs
+├── e2e/
+│   ├── auth.setup.ts      # Auth setup project
+│   ├── fixtures.ts        # Custom test fixtures
+│   ├── global-setup.ts    # Loads DATABASE_URL from .env.test
+│   ├── global-teardown.ts # Deletes ephemeral branch
+│   ├── test-users.ts      # Test user data
+│   └── tests/
+│       └── timeline.spec.ts  # E2E test specs
 ```
 
 ---
@@ -344,8 +341,8 @@ See [Ephemeral Test Branches](#ephemeral-test-branches) for details.
 Use `createMockSession` for components that need auth context:
 
 ```typescript
-import { createMockSession } from "@history-portal/db/test-utils";
-import { TEST_USERS } from "@history-portal/db/test-utils";
+import { createMockSession } from "@/db/test-utils";
+import { TEST_USERS } from "@/db/test-utils";
 
 const mockSession = createMockSession(TEST_USERS.alice);
 ```
@@ -388,7 +385,7 @@ KEEP_TEST_BRANCH=1 pnpm test:e2e
 
 # When done debugging, delete the .env.test file
 # The orphaned Neon branch will auto-suspend
-rm packages/db/.env.test
+rm .env.test
 ```
 
 ---
@@ -401,7 +398,7 @@ Tests are integrated into the CI pipeline via the [verify workflow](../.github/w
 
 | Test Type         | Runs In CI | Notes                               |
 | ----------------- | :--------: | ----------------------------------- |
-| Linting           |     ✅     | `pnpm turbo lint`                   |
+| Linting           |     ✅     | `pnpm lint`                         |
 | Unit tests        |     ✅     | Against ephemeral Neon branch       |
 | Integration tests |     ✅     | RLS tests against ephemeral branch  |
 | E2E tests         |     ✅     | Playwright against ephemeral branch |
@@ -475,7 +472,7 @@ export const TEST_USERS = {
 
 ```bash
 # Ensure you're authenticated with Neon
-pnpm -F @history-portal/db exec neonctl auth
+pnpm exec neonctl auth
 
 # Check Pulumi staging stack is deployed (for project ID)
 pnpm infra:up:staging
@@ -486,7 +483,7 @@ If tests are interrupted, branches may not be cleaned up:
 
 ```bash
 # List all branches to find orphaned test-* branches
-pnpm -F @history-portal/db exec neonctl branches list
+pnpm exec neonctl branches list
 
 # Delete manually via Neon console or CLI
 ```
@@ -496,7 +493,7 @@ If `.env.test` points to a deleted branch:
 
 ```bash
 # Remove stale env file
-rm packages/db/.env.test
+rm .env.test
 
 # Re-run tests (will create fresh branch)
 pnpm test

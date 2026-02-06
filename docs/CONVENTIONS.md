@@ -190,7 +190,7 @@ We use a **hybrid approach** for type-safe API requests and responses:
 Export inferred types from each schema file using `.$inferSelect`:
 
 ```typescript
-// packages/db/src/schema/cards.ts
+// src/db/schema/cards.ts
 export const layer = pgTable("layer", { ... });
 
 // ✅ Correct - use .$inferSelect
@@ -220,7 +220,7 @@ src/app/api/
 
 ```typescript
 // src/app/api/cards/types.ts
-import type { Card, Layer, LayerRole } from "@history-portal/db";
+import type { Card, Layer, LayerRole } from "@/db";
 
 // Request type for POST body
 export type CardsRequest = {
@@ -264,7 +264,7 @@ Import types from API route files for typed fetch responses:
 
 ```typescript
 // Component fetching data
-import type { Layer } from "@history-portal/db";
+import type { Layer } from "@/db";
 import type { LayersResponse } from "@/app/api/layers/types";
 import type { CardsRequest, CardsResponse } from "@/app/api/cards/types";
 
@@ -293,11 +293,11 @@ const data: CardsResponse = await response.json();
 
 ### Dynamic Route Export
 
-API routes that import from `@history-portal/db` (directly or transitively) must include `export const dynamic = "force-dynamic"`:
+API routes that import from `@/db` (directly or transitively) must include `export const dynamic = "force-dynamic"`:
 
 ```typescript
 // src/app/api/health/db/route.ts
-import { db, sql } from "@history-portal/db";
+import { db, sql } from "@/db";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -317,7 +317,7 @@ Routes that use `headers()` or `cookies()` (e.g., via `getSession()`) are auto-d
 
 ### Overview
 
-We use **Drizzle ORM** directly for database seeding via a custom script at `packages/db/scripts/seed.ts`. Run with:
+We use **Drizzle ORM** directly for database seeding via a custom script at `scripts/db/seed.ts`. Run with:
 
 ```bash
 pnpm db:seed
@@ -338,10 +338,10 @@ pnpm db:seed
 
 ### Seed Data Files
 
-Seed data lives in `packages/db/seed/` as JSON files:
+Seed data lives in `seed/` as JSON files:
 
 ```
-packages/db/seed/
+seed/
 ├── users.json      # User records
 └── accounts.json   # Account records (linked to users)
 ```

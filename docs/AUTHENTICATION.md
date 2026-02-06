@@ -338,26 +338,26 @@ For the complete project structure, see [ARCHITECTURE.md - Directory Structure](
 
 ### Auth-Specific Files
 
-| Path                                                 | Purpose                                                   |
-| ---------------------------------------------------- | --------------------------------------------------------- |
-| `packages/db/src/schema/auth.ts`                     | Better Auth tables (user, session, account, verification) |
-| `packages/db/src/rls.ts`                             | `withRLS()` and `withAdminAccess()` helpers               |
-| `packages/db/migrations/rls-policies.sql`            | RLS functions (manual, idempotent)                        |
-| `packages/portal/src/lib/auth/index.tsx`             | Better Auth server config                                 |
-| `packages/portal/src/lib/auth/client.ts`             | Client-side auth config (social login)                    |
-| `packages/portal/src/lib/auth/session.ts`            | `getSession()`, `requireSession()` helpers                |
-| `packages/portal/src/lib/auth/email-template.tsx`    | Custom React email template                               |
-| `packages/portal/src/app/api/auth/[...all]/route.ts` | Better Auth API handler                                   |
-| `packages/portal/src/app/auth/*`                     | Auth pages (sign-in, sign-up, etc.)                       |
-| `packages/portal/src/components/auth/*`              | Auth form components and actions                          |
-| `packages/portal/src/proxy.ts`                       | Route protection (Next.js 16+)                            |
-| `packages/portal/src/const/routes.ts`                | Centralized route constants                               |
+| Path                                    | Purpose                                                   |
+| --------------------------------------- | --------------------------------------------------------- |
+| `src/db/schema/auth.ts`                 | Better Auth tables (user, session, account, verification) |
+| `src/db/rls.ts`                         | `withRLS()` and `withAdminAccess()` helpers               |
+| `migrations/rls-policies.sql`           | RLS functions (manual, idempotent)                        |
+| `src/lib/auth/index.tsx`                | Better Auth server config                                 |
+| `src/lib/auth/client.ts`               | Client-side auth config (social login)                    |
+| `src/lib/auth/session.ts`              | `getSession()`, `requireSession()` helpers                |
+| `src/lib/auth/email-template.tsx`      | Custom React email template                               |
+| `src/app/api/auth/[...all]/route.ts`   | Better Auth API handler                                   |
+| `src/app/auth/*`                        | Auth pages (sign-in, sign-up, etc.)                       |
+| `src/components/auth/*`                 | Auth form components and actions                          |
+| `src/proxy.ts`                          | Route protection (Next.js 16+)                            |
+| `src/const/routes.ts`                   | Centralized route constants                               |
 
 ---
 
 ## 6. Database Schema
 
-Better Auth requires four tables, defined in [packages/db/src/schema/auth.ts](../packages/db/src/schema/auth.ts):
+Better Auth requires four tables, defined in [src/db/schema/auth.ts](../src/db/schema/auth.ts):
 
 ### Tables
 
@@ -385,7 +385,7 @@ export type UserRole = "user" | "admin";
 
 ## 7. Server Configuration
 
-Located at [packages/portal/src/lib/auth/index.tsx](../packages/portal/src/lib/auth/index.tsx).
+Located at [src/lib/auth/index.tsx](../src/lib/auth/index.tsx).
 
 Configures:
 
@@ -399,9 +399,9 @@ Configures:
 
 ## 8. Client Configuration
 
-| File                                                                                | Purpose                                     |
-| ----------------------------------------------------------------------------------- | ------------------------------------------- |
-| [packages/portal/src/lib/auth/client.ts](../packages/portal/src/lib/auth/client.ts) | Auth client for social login (Google OAuth) |
+| File                                                        | Purpose                                     |
+| ----------------------------------------------------------- | ------------------------------------------- |
+| [src/lib/auth/client.ts](../src/lib/auth/client.ts)         | Auth client for social login (Google OAuth) |
 
 The client is used only for social login buttons, which require client-side JavaScript to redirect to the OAuth provider.
 
@@ -413,19 +413,19 @@ Custom auth components using Server Actions for progressive enhancement (forms w
 
 ### Components
 
-| Component                                                                             | Purpose                   |
-| ------------------------------------------------------------------------------------- | ------------------------- |
-| [SignInForm](../packages/portal/src/components/auth/sign-in-form.tsx)                 | Email/password sign in    |
-| [SignUpForm](../packages/portal/src/components/auth/sign-up-form.tsx)                 | Account registration      |
-| [ForgotPasswordForm](../packages/portal/src/components/auth/forgot-password-form.tsx) | Request password reset    |
-| [ResetPasswordForm](../packages/portal/src/components/auth/reset-password-form.tsx)   | Reset password with token |
+| Component                                                                       | Purpose                   |
+| ------------------------------------------------------------------------------- | ------------------------- |
+| [SignInForm](../src/components/auth/sign-in-form.tsx)                            | Email/password sign in    |
+| [SignUpForm](../src/components/auth/sign-up-form.tsx)                            | Account registration      |
+| [ForgotPasswordForm](../src/components/auth/forgot-password-form.tsx)            | Request password reset    |
+| [ResetPasswordForm](../src/components/auth/reset-password-form.tsx)              | Reset password with token |
 
 ### Supporting Files
 
-| File                                                            | Purpose                                 |
-| --------------------------------------------------------------- | --------------------------------------- |
-| [actions.ts](../packages/portal/src/components/auth/actions.ts) | Server Actions for all form submissions |
-| [schemas.ts](../packages/portal/src/components/auth/schemas.ts) | Zod 4 validation schemas                |
+| File                                                  | Purpose                                 |
+| ----------------------------------------------------- | --------------------------------------- |
+| [actions.ts](../src/components/auth/actions.ts)        | Server Actions for all form submissions |
+| [schemas.ts](../src/components/auth/schemas.ts)        | Zod 4 validation schemas                |
 
 ### Progressive Enhancement
 
@@ -437,7 +437,7 @@ Forms use React 19's `useActionState` hook for:
 - ✅ Loading states with `isPending`
 - ✅ Server-side redirect on success
 
-See [sign-in-form.tsx](../packages/portal/src/components/auth/sign-in-form.tsx) for the implementation pattern.
+See [sign-in-form.tsx](../src/components/auth/sign-in-form.tsx) for the implementation pattern.
 
 ---
 
@@ -448,11 +448,11 @@ See [sign-in-form.tsx](../packages/portal/src/components/auth/sign-in-form.tsx) 
 1. **Proxy (fast, optimistic)**: Uses `getSessionCookie()` to check cookie existence only - no DB call
 2. **Page (secure, validated)**: Uses `requireSession()` to validate session against database
 
-| File                                                     | Purpose                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------- |
-| [proxy.ts](../packages/portal/src/proxy.ts)              | Fast cookie check, optimistic redirect for unauthenticated    |
-| [session.ts](../packages/portal/src/lib/auth/session.ts) | `getSession()` and `requireSession()` with full DB validation |
-| [routes.ts](../packages/portal/src/const/routes.ts)      | Centralized route constants                                   |
+| File                                                | Purpose                                                       |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| [proxy.ts](../src/proxy.ts)                          | Fast cookie check, optimistic redirect for unauthenticated    |
+| [session.ts](../src/lib/auth/session.ts)             | `getSession()` and `requireSession()` with full DB validation |
+| [routes.ts](../src/const/routes.ts)                  | Centralized route constants                                   |
 
 ### Security Note
 
@@ -477,10 +477,10 @@ SET LOCAL app.is_admin = 'true';  -- Optional, for admin bypass
 
 ### Key Files
 
-| File                                                           | Purpose                                     |
-| -------------------------------------------------------------- | ------------------------------------------- |
-| [rls-policies.sql](../packages/db/migrations/rls-policies.sql) | PostgreSQL RLS functions and app_user role  |
-| [rls.ts](../packages/db/src/rls.ts)                            | `withRLS()` and `withAdminAccess()` helpers |
+| File                                                    | Purpose                                     |
+| ------------------------------------------------------- | ------------------------------------------- |
+| [rls-policies.sql](../migrations/rls-policies.sql)      | PostgreSQL RLS functions and app_user role  |
+| [rls.ts](../src/db/rls.ts)                              | `withRLS()` and `withAdminAccess()` helpers |
 
 ### Neon BYPASSRLS Gotcha
 
@@ -542,18 +542,13 @@ CREATE POLICY "Users can delete own data" ON your_table
 | `RESEND_API_KEY`       | Resend API key for emails                 |
 | `EMAIL_FROM`           | Sender email address                      |
 
-**Locations:**
-
-- `DATABASE_URL` → `packages/db/.env.local` (single source of truth)
-- All others → `packages/portal/.env.local`
-
-> **Note:** Portal loads `DATABASE_URL` from the db package via `next.config.ts`.
+**Location:** All variables go in `.env.local` at the project root.
 
 ### Local Development
 
-For local development with Docker PostgreSQL, `DATABASE_URL` can be omitted in `packages/db/.env.local`—it falls back to local defaults.
+For local development with Docker PostgreSQL, `DATABASE_URL` can be omitted in `.env.local`—it falls back to local defaults.
 
-Create `packages/portal/.env.local` (auth-related variables only):
+Create `.env.local` with the required variables:
 
 ```bash
 # Auth
@@ -602,7 +597,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 - [ ] Install dependencies: `pnpm install`
 - [ ] Start local database: `pnpm db:up`
 - [ ] Run migrations: `pnpm db:migrate:all`
-- [ ] Create `packages/portal/.env.local` with required variables
+- [ ] Create `.env.local` with required variables
 - [ ] Generate `BETTER_AUTH_SECRET`: `openssl rand -base64 32`
 
 ### External Services Setup
@@ -659,7 +654,7 @@ These are automatically passed to Cloud Run as environment variables during depl
 | **Database Query with RLS**    | `await withRLS(user.id, async (db) => { ... });`                           |
 | **Social Login (Client)**      | `signIn.social({ provider: "google", callbackURL: "/dashboard" });`        |
 
-See [packages/portal/src/app/timeline/page.tsx](../packages/portal/src/app/timeline/page.tsx) for a working example.
+See [src/app/timeline/page.tsx](../src/app/timeline/page.tsx) for a working example.
 
 ---
 

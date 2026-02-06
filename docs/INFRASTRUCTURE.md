@@ -74,22 +74,12 @@ pnpm --version
 
 ### Pulumi CLI
 
-Pulumi is installed as a **local dependency** in the monorepo root (not globally):
+Pulumi is used for infrastructure management in the `infra/` directory. Install its dependencies separately:
 
-```json
-// package.json (root)
-{
-  "devDependencies": {
-    "@pulumi/pulumi": "^3"
-  }
-}
+```bash
+cd infra
+pnpm install
 ```
-
-This approach:
-
-- Pins the version for reproducibility
-- Works seamlessly in CI/CD
-- Avoids global install conflicts between projects
 
 ---
 
@@ -104,7 +94,7 @@ Local development uses a personal Neon branch from the staging project.
 pnpm db:setup:neon-dev
 
 # Output: DATABASE_URL connection string
-# Add this to packages/db/.env.local
+# Add this to .env.local
 ```
 
 The script:
@@ -129,14 +119,14 @@ This clears all schemas and re-runs migrations for a clean slate.
 
 ### Environment Configuration
 
-`packages/db/.env.local` is the single source of truth for `DATABASE_URL`:
+`.env.local` is the single source of truth for `DATABASE_URL`:
 
 ```bash
 # Run `pnpm db:setup:neon-dev` to get this connection string
 DATABASE_URL=postgresql://...@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
 ```
 
-> **Note:** The portal package loads `DATABASE_URL` from `packages/db/.env.local` via `next.config.ts`.
+Next.js loads `.env.local` automatically at startup.
 
 ---
 
@@ -208,7 +198,7 @@ infra/
 
 ### Step 1: Initialize Pulumi Project
 
-From the monorepo root:
+From the project root:
 
 ```bash
 # Create infra directory and initialize
@@ -278,7 +268,7 @@ See the actual configuration files for current values:
 ### Creating New Stacks
 
 ```bash
-# From monorepo root
+# From the project root
 pnpm pulumi stack init prod
 
 # Or from infra directory
@@ -379,30 +369,25 @@ config:
 
 ### Configuration Files
 
-| File                                                                | Purpose                              |
-| ------------------------------------------------------------------- | ------------------------------------ |
-| [packages/portal/next.config.ts](../packages/portal/next.config.ts) | Next.js standalone + monorepo config |
-| [packages/portal/Dockerfile](../packages/portal/Dockerfile)         | Multi-stage Docker build             |
-| [.dockerignore](../.dockerignore)                                   | Excludes files from Docker context   |
+| File                                        | Purpose                            |
+| ------------------------------------------- | ---------------------------------- |
+| [next.config.ts](../next.config.ts)         | Next.js standalone output config   |
+| [Dockerfile](../Dockerfile)                 | Multi-stage Docker build           |
+| [.dockerignore](../.dockerignore)           | Excludes files from Docker context |
 
 ### Key Configuration
 
-**Next.js** requires two settings for Cloud Run deployment in a monorepo:
+**Next.js** requires `output: "standalone"` for Cloud Run deployment, which creates a self-contained build.
 
-- `output: "standalone"` — Creates a self-contained build
-- `outputFileTracingRoot` — Points to monorepo root for workspace imports
-
-**Dockerfile** uses a multi-stage build (deps → builder → runner) optimized for pnpm workspaces.
+**Dockerfile** uses a multi-stage build (deps -> builder -> runner) for a single Next.js project.
 
 ### Key Learnings
 
-1. **Public folder location:** In standalone builds, the `public` folder must be copied to the same directory as `server.js` (e.g., `./packages/portal/public`), not the app root.
+1. **Public folder location:** In standalone builds, the `public` folder must be copied to the same directory as `server.js` (e.g., `./public`).
 
-2. **Static files location:** Similarly, `.next/static` must be at `./packages/portal/.next/static`.
+2. **Static files location:** Similarly, `.next/static` must be at `./.next/static`.
 
-3. **Monorepo tracing:** Set `outputFileTracingRoot` to include workspace package imports in the standalone build.
-
-4. **Runtime secrets & lazy DB clients:** `DATABASE_URL` is injected by Cloud Run at runtime, not available during `next build`. The `@history-portal/db` package uses lazy-initialized Proxy wrappers so importing the module is safe at build time — the actual Neon connection is only created on first query. See [ARCHITECTURE.md - Lazy Initialization](./ARCHITECTURE.md#lazy-initialization).
+3. **Runtime secrets & lazy DB clients:** `DATABASE_URL` is injected by Cloud Run at runtime, not available during `next build`. The `@/db` module uses lazy-initialized Proxy wrappers so importing it is safe at build time — the actual Neon connection is only created on first query. See [ARCHITECTURE.md - Lazy Initialization](./ARCHITECTURE.md#lazy-initialization).
 
 ### Configure Docker Authentication
 
@@ -441,7 +426,7 @@ gcloud run services logs read portal-staging --region=europe-west2 --tail=50
 
 ### Root-Level Commands (Recommended)
 
-Run from monorepo root using npm scripts:
+Run from the project root using npm scripts:
 
 ```bash
 # Stack-specific commands (explicit stack selection)
