@@ -86,27 +86,23 @@
 1. Checkout code
 2. Setup pnpm and Node.js
 3. Install dependencies
-4. Install Pulumi CLI (for getting Neon project ID from staging stack)
-5. Authenticate with Neon
-6. Run linting (`pnpm lint`)
-7. Run unit tests (`pnpm test`) - creates/deletes own ephemeral branch
-8. Run database tests (`pnpm test:db`) - creates/deletes own ephemeral branch
-9. Install Playwright browsers
-10. Run E2E tests - creates/deletes own ephemeral branch
-11. Upload Playwright report on failure
+4. Run linting (`pnpm lint`)
+5. Run unit tests (`pnpm test`)
+6. Run database tests (`pnpm test:db`) — Testcontainer (ephemeral PostgreSQL)
+7. Install Playwright browsers
+8. Run E2E tests (`pnpm test:e2e`) — Testcontainer (ephemeral PostgreSQL)
+9. Upload Playwright report on failure
 
-**Ephemeral Branch Flow:**
+**Testcontainer Flow:**
 
-Each test runner creates and manages its own ephemeral branch independently:
+Each test runner starts and stops its own Testcontainer:
 
 ```
-Vitest (unit tests)    → Creates branch → Runs tests → Deletes branch
-Vitest (db tests)      → Creates branch → Runs tests → Deletes branch
-Playwright (E2E)       → Creates branch → Runs tests → Deletes branch
+Vitest (db tests) → Starts container → Runs tests → Stops container
+Playwright (E2E)  → Starts container → Runs tests → Stops container
 ```
 
-Note: Playwright creates its branch in the webServer command (before Next.js starts)
-to ensure DATABASE_URL is set before any code is compiled.
+Docker is pre-installed on `ubuntu-latest` — no extra setup needed. No cloud secrets required.
 
 ### Release Workflow
 
@@ -229,15 +225,14 @@ gcloud iam service-accounts add-iam-policy-binding \
 
 Go to your repo → Settings → Secrets and variables → Actions → New repository secret:
 
-| Secret                           | Value                                                                                            |
-| -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `PULUMI_ACCESS_TOKEN`            | Your Pulumi access token                                                                         |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/providers/github` |
-| `GCP_SERVICE_ACCOUNT`            | `github-actions@history-portal.iam.gserviceaccount.com`                                          |
-| `NEON_API_KEY`                   | Neon API key for PITR rollback (create at [console.neon.tech](https://console.neon.tech))        |
-| `NEON_PROJECT_ID`                | Neon project ID (from Pulumi outputs: `patient-shadow-80448127` for staging)                     |
+| Secret                           | Value                                                                                            | Used By         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ | --------------- |
+| `PULUMI_ACCESS_TOKEN`            | Your Pulumi access token                                                                         | release.yml     |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/providers/github` | release.yml     |
+| `GCP_SERVICE_ACCOUNT`            | `github-actions@history-portal.iam.gserviceaccount.com`                                          | release.yml     |
+| `NEON_API_KEY`                   | Neon API key for PITR rollback (create at [console.neon.tech](https://console.neon.tech))        | release.yml     |
 
-> **Note:** `DATABASE_URL` is automatically retrieved from Pulumi stack outputs during the migration job. No need to set it as a secret.
+> **Note:** The verify workflow requires **no secrets** — tests use Testcontainers (local Docker). `DATABASE_URL` for the release workflow is retrieved from Pulumi stack outputs during the migration job.
 
 To get your project number:
 

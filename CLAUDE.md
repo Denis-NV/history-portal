@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 History Portal is a full-stack TypeScript app for exploring historical timelines and maps. Deployed to GCP Cloud Run via Pulumi.
 
 **Structure:**
-- `src/` — Next.js 16 app (React 19, App Router) + database layer (Drizzle ORM + Neon)
+- `src/` — Next.js 16 app (React 19, App Router) + database layer (Drizzle ORM + postgres.js)
 - `infra/` — Pulumi infrastructure (separate package with its own node_modules)
 
 ## Commands
@@ -43,10 +43,10 @@ pnpm ui:add <component-name>
 
 ## Architecture
 
-### Database clients (src/db/client.ts)
-Two Neon clients, **lazy-initialized via Proxy** to avoid build-time DB access (DATABASE_URL is a runtime secret in Docker):
-- `db` — HTTP client for simple queries (stateless, lower latency)
-- `dbPool` — WebSocket pool for transactions and RLS operations
+### Database client (src/db/client.ts)
+Single postgres.js client, **lazy-initialized via Proxy** to avoid build-time DB access (DATABASE_URL is a runtime secret in Docker):
+- `db` — Drizzle ORM instance backed by postgres.js (supports queries and transactions)
+- Local dev uses Docker Compose (`pnpm db:up`), tests use Testcontainers, staging/prod use Neon
 
 ### Row-Level Security (src/db/rls.ts)
 - `withRLS(userId, operation)` — Executes in a transaction with `SET LOCAL ROLE app_user` and `SET LOCAL app.user_id`

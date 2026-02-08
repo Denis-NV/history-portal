@@ -1,39 +1,27 @@
 import { defineConfig, devices } from "@playwright/test";
-import { config } from "dotenv";
-
-// Load .env.test from project root (for ephemeral branch DATABASE_URL)
-// Child processes (Next.js dev server) inherit these env vars
-config({ path: ".env.test", quiet: true });
 
 /**
  * Playwright Configuration for E2E Tests
  *
  * Test Strategy:
- * - Creates an ephemeral Neon branch for test isolation (via webServer command)
+ * - webServer command (e2e/dev-server.ts) starts a PostgreSQL Testcontainer,
+ *   runs migrations + seed, then starts Next.js dev server
+ * - globalSetup loads DATABASE_URL from .env.test for the Playwright process
  * - Uses seeded test users (Alice, Bob, Carol, Admin) for user-based isolation
  * - Each user has their own authenticated storage state
  * - Tests can run in parallel without conflicting because each user has unique data
- * - Cleans up ephemeral branch after tests complete (via globalTeardown)
- *
- * Branch Creation:
- * - The webServer command creates the branch BEFORE Next.js starts
- * - This ensures DATABASE_URL is set before any code is compiled
- * - globalSetup just loads the DATABASE_URL for the Playwright process
+ * - Testcontainer is stopped when Playwright terminates the webServer process
  *
  * Test Users:
  * - alice@test.local (15 cards) - Primary test user
  * - bob@test.local (10 cards) - Secondary test user
  * - carol@test.local (0 cards) - Empty state test user
  * - admin@test.local (admin role) - Admin functionality tests
- *
- * Environment:
- * - Set KEEP_TEST_BRANCH=1 to skip branch cleanup (for debugging)
  */
 
 export default defineConfig({
-  // Global setup creates ephemeral Neon branch
+  // Global setup loads DATABASE_URL from .env.test (created by webServer script)
   globalSetup: "./e2e/global-setup.ts",
-  globalTeardown: "./e2e/global-teardown.ts",
 
   // Test directory
   testDir: "./e2e",
@@ -126,17 +114,13 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
+  // Playwright starts webServer BEFORE globalSetup, so the Testcontainer
+  // setup and Next.js startup are handled by the dev-server.ts script
   webServer: {
-    // Create ephemeral branch FIRST, then source .env.test and start Next.js
-    // This ensures DATABASE_URL is set before Next.js compiles any code
-    command: `
-      pnpm exec tsx scripts/db/ephemeral-branch.ts create &&
-      set -a && . ./.env.test && set +a &&
-      pnpm dev
-    `,
+    command: "pnpm exec tsx e2e/dev-server.ts",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // Account for branch creation time
+    timeout: 120 * 1000, // Testcontainer + migrations + seed + Next.js startup
     stdout: "pipe",
     stderr: "pipe",
   },

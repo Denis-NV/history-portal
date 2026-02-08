@@ -15,8 +15,8 @@
  *   DATABASE_URL=... pnpm db:seed   # Seed a specific database
  */
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { randomBytes } from "node:crypto";
 import { seed } from "drizzle-seed";
 import { scrypt as scryptSync } from "@noble/hashes/scrypt.js";
@@ -43,14 +43,14 @@ function hashPassword(password: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Database Client Setup (Neon Serverless)
+// Database Client Setup (postgres.js)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runSeed() {
   console.log("🌱 Starting database seed...");
 
-  const sql = neon(connectionString);
-  const db = drizzleHttp(sql, { schema });
+  const sql = postgres(connectionString);
+  const db = drizzle(sql, { schema });
 
   try {
     // ─────────────────────────────────────────────────────────────────────────
@@ -201,6 +201,8 @@ async function runSeed() {
   } catch (error) {
     console.error("❌ Seeding failed:", error);
     process.exit(1);
+  } finally {
+    await sql.end();
   }
 }
 

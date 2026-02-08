@@ -110,7 +110,7 @@ history-portal/
 │   │       └── reset-password-form.tsx
 │   ├── db/                     # Database layer
 │   │   ├── index.ts            # Re-exports (client, schema, config)
-│   │   ├── client.ts           # Drizzle clients (HTTP + WebSocket)
+│   │   ├── client.ts           # Drizzle client (postgres.js)
 │   │   ├── config.ts           # Connection string configuration
 │   │   ├── rls.ts              # withRLS() and withAdminAccess() helpers
 │   │   └── schema/
@@ -150,18 +150,17 @@ The `infra/` folder is a standalone Pulumi project at the root level, separate f
 
 ```bash
 # Development
-pnpm dev:portal              # Start Next.js dev server
+pnpm dev                     # Start Next.js dev server
 pnpm check-types             # Type-check the project
 
-# Database (local development)
-pnpm db:up                   # Start local PostgreSQL + Neon proxy
+# Database (local development via Docker Compose)
+pnpm db:up                   # Start local PostgreSQL container
 pnpm db:down                 # Stop local database
-pnpm db:logs                 # View database logs
 pnpm db:studio               # Open Drizzle Studio
 pnpm db:generate             # Generate migration from schema changes
-pnpm db:migrate              # Apply migrations
+pnpm db:migrate:all          # Apply migrations + RLS policies
 pnpm db:seed                 # Seed the database
-pnpm db:push                 # Push schema directly (dev only)
+pnpm db:reset:local          # Reset local database (destructive)
 
 # Infrastructure (run from root)
 pnpm pulumi stack ls         # List Pulumi stacks
@@ -313,8 +312,8 @@ pnpm add <pkg>               # Add a dependency
 │   │                          │                                  │   │
 │   │                          ▼                                  │   │
 │   │   ┌─────────────────────────────────────────────────────┐   │   │
-│   │   │              Neon Dev Branch                        │   │   │
-│   │   │   (DATABASE_URL from .env.local)        │   │   │
+│   │   │         Docker Compose (PostgreSQL 17)              │   │   │
+│   │   │   localhost:5432 (DATABASE_URL from .env.local)     │   │   │
 │   │   └─────────────────────────────────────────────────────┘   │   │
 │   │                                                             │   │
 │   └─────────────────────────────────────────────────────────┘   │
@@ -329,33 +328,25 @@ pnpm add <pkg>               # Add a dependency
 │                    Environment Strategy                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│   Pulumi Stacks              Neon Projects (Isolated)               │
-│   ─────────────              ────────────────────────               │
+│   Environment               Database                                │
+│   ───────────               ────────                                │
 │                                                                     │
-│   (local)                   ┌─────────────────────────────┐         │
-│   pnpm dev      ────────────│ Neon dev-{username} branch  │         │
-│                             │ (from staging project)      │         │
-│                             └─────────────────────────────┘         │
+│   Local Dev                 Docker Compose (PostgreSQL 17)           │
+│   (pnpm dev)                localhost:5432                           │
 │                                                                     │
-│   ┌─────────────┐           ┌─────────────────────────────┐         │
-│   │   staging   │──────────►│ history-portal-staging      │ ✅      │
-│   └─────────────┘           │ (Neon Project - isolated)   │         │
-│                             │                             │         │
-│                             │  ┌───────────────────────┐  │         │
-│   CI/CD Pipeline            │  │ test-* branches       │  │         │
-│   (ephemeral)  ───────────► │  │ (ephemeral, from      │  │         │
-│                             │  │  staging branch)      │  │         │
-│                             │  └───────────────────────┘  │         │
-│                             └─────────────────────────────┘         │
+│   Tests (Vitest, E2E)       Testcontainers (ephemeral PostgreSQL)   │
+│                             Auto-created, auto-destroyed             │
 │                                                                     │
 │   ┌─────────────┐           ┌─────────────────────────────┐         │
-│   │    prod     │──────────►│ history-portal-prod         │ 🔜      │
-│   └─────────────┘           │ (Neon Project - isolated)   │         │
-│                             └─────────────────────────────┘         │
+│   │   staging   │──────────►│ Neon (staging project)      │ ✅      │
+│   └─────────────┘           └─────────────────────────────┘         │
 │                                                                     │
-│   Note: Staging and Prod use SEPARATE Neon projects for complete    │
-│   isolation. CI/CD uses ephemeral BRANCHES within the staging       │
-│   project for cost efficiency.                                      │
+│   ┌─────────────┐           ┌─────────────────────────────┐         │
+│   │    prod     │──────────►│ Neon (prod project)         │ 🔜      │
+│   └─────────────┘           └─────────────────────────────┘         │
+│                                                                     │
+│   Note: Local dev and tests use Docker (no network/cloud needed).   │
+│   Staging and Prod use Neon (serverless PostgreSQL).                │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -512,30 +503,29 @@ pulumi destroy --stack test-$CI_RUN_ID --yes
 
 ## 6. Local Development
 
-### Neon Dev Branch
+### Docker Compose
 
-Local development uses a personal Neon branch from the staging project. This gives you:
+Local development uses a Docker Compose PostgreSQL container. This gives you:
 
-- Same database branching model as CI/CD
-- Isolated development environment per developer
-- No local database setup required
+- Fast, offline-capable development (no network latency)
+- Same PostgreSQL 17 version as production (Neon)
+- Persistent data volume across restarts
 
 ### Development Workflow
 
 ```bash
-# One-time: Create your dev branch
-pnpm db:setup:neon-dev
+# One-time: Start local PostgreSQL
+pnpm db:up
 
-# Add the output DATABASE_URL to .env.local
+# Run migrations and seed
+pnpm db:migrate:all
+pnpm db:seed
 
 # Run Next.js development server
-pnpm dev:portal
+pnpm dev
 
 # Open Drizzle Studio (database browser)
 pnpm db:studio
-
-# Run database migrations
-pnpm db:migrate
 
 # Generate Drizzle migrations from schema changes
 pnpm db:generate
@@ -543,22 +533,21 @@ pnpm db:generate
 
 ### Database Client Configuration
 
-The `@/db` module exports pre-configured Drizzle clients.
+The `@/db` module exports a pre-configured Drizzle client.
 
 See: [src/db/client.ts](../src/db/client.ts)
 
 Key exports:
 
-- **`db`** — HTTP client for simple queries (stateless, lower latency)
-- **`dbPool`** — WebSocket pool for transactions and interactive queries
+- **`db`** — Drizzle ORM instance backed by postgres.js (queries and transactions)
 
 #### Driver
 
-All environments use the `@neondatabase/serverless` driver.
+All environments use the `postgres` (postgres.js) driver via `drizzle-orm/postgres-js`. This works with both local Docker and remote Neon databases using standard PostgreSQL connection strings.
 
 #### Lazy Initialization
 
-Database clients are **lazy-initialized via Proxy**. Importing `@/db` does not create a database connection — the actual Neon client is created on first property access (e.g., `db.select()` or `dbPool.transaction()`).
+The database client is **lazy-initialized via Proxy**. Importing `@/db` does not create a database connection — the actual postgres.js client is created on first property access (e.g., `db.select()`).
 
 This is required because `DATABASE_URL` is a **runtime secret** injected by Cloud Run, not available during `next build` inside Docker. Without lazy init, any module that imports from `@/db` would crash at build time.
 
@@ -568,8 +557,8 @@ The Proxy is transparent to consumers — `db.select().from(cards)` works exactl
 
 ```bash
 # .env.local (single source of truth for DATABASE_URL)
-# Run `pnpm db:setup:neon-dev` to create your dev branch and get the connection string
-DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
+# Local Docker Compose:
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/history_portal
 ```
 
 ---
@@ -580,13 +569,14 @@ DATABASE_URL=postgres://user:pass@ep-xxx.aws-eu-west-2.neon.tech/dbname
 
 The database layer is fully implemented with:
 
-| Component                | Status | Description                      |
-| ------------------------ | ------ | -------------------------------- |
-| Neon Dev Branches        | ✅     | Personal dev branches for local  |
-| Drizzle ORM              | ✅     | v0.38.3 with snake_case naming   |
-| @neondatabase/serverless | ✅     | v0.10.4 (all environments)       |
-| Neon Staging             | ✅     | `history-portal-staging` project |
-| Health Endpoint          | ✅     | `/api/health/db`                 |
+| Component                | Status | Description                          |
+| ------------------------ | ------ | ------------------------------------ |
+| Docker Compose           | ✅     | Local dev PostgreSQL 17              |
+| Testcontainers           | ✅     | Ephemeral PostgreSQL for tests       |
+| Drizzle ORM              | ✅     | with snake_case naming               |
+| postgres.js              | ✅     | Single driver for all environments   |
+| Neon Staging             | ✅     | `history-portal-staging` project     |
+| Health Endpoint          | ✅     | `/api/health/db`                     |
 
 ### Database Layer Structure
 
@@ -595,8 +585,8 @@ See: [src/db/](../src/db/)
 | File                                                  | Purpose                                     |
 | ----------------------------------------------------- | ------------------------------------------- |
 | [drizzle.config.ts](../drizzle.config.ts)             | Drizzle Kit configuration                   |
-| [src/db/index.ts](../src/db/index.ts)                 | Re-exports: db, dbPool, schema, config      |
-| [src/db/client.ts](../src/db/client.ts)               | Drizzle clients (lazy-initialized via Proxy) |
+| [src/db/index.ts](../src/db/index.ts)                 | Re-exports: db, schema, config               |
+| [src/db/client.ts](../src/db/client.ts)               | Drizzle client (lazy-initialized via Proxy)  |
 | [src/db/config.ts](../src/db/config.ts)               | Connection string (`getConnectionString()`)  |
 | [src/db/rls.ts](../src/db/rls.ts)                     | `withRLS()` and `withAdminAccess()` helpers |
 | [src/db/schema/index.ts](../src/db/schema/index.ts)   | Schema re-exports (auth, cards)             |
@@ -646,29 +636,20 @@ const cards = await withRLS(userId, async (tx) => {
 });
 ```
 
-### Integration Testing with Ephemeral Branches
+### Integration Testing with Testcontainers
 
-Ephemeral Neon branches are used for E2E testing in CI. The script uses `neonctl` CLI:
-
-```bash
-# Create ephemeral branch, seed it, and write .env.test
-pnpm exec tsx scripts/ephemeral-branch.ts create
-
-# Delete ephemeral branch and cleanup .env.test
-pnpm exec tsx scripts/ephemeral-branch.ts delete
-```
-
-See [scripts/db/ephemeral-branch.ts](../scripts/db/ephemeral-branch.ts) for the implementation.
+Tests use **Testcontainers** (`@testcontainers/postgresql`) to create ephemeral PostgreSQL containers. No network access or cloud services needed.
 
 **How it works:**
 
-1. Gets Neon project ID from Pulumi staging stack
-2. Creates a branch from `staging` with name `test-{timestamp}`
-3. Seeds the branch with test data
-4. Writes `DATABASE_URL` to `.env.test`
-5. Playwright's `webServer` sources `.env.test` before starting Next.js
+1. Global setup starts a `postgres:17-alpine` container
+2. Runs migrations (`pnpm db:migrate:all`) and seeds (`pnpm db:seed`)
+3. Sets `DATABASE_URL` to the container's connection string
+4. Tests execute against the isolated container
+5. Teardown stops and removes the container
 
-````
+See `src/db/test-utils/global-setup.ts` (Vitest) and `e2e/global-setup.ts` (Playwright).
+
 
 ---
 
@@ -1121,7 +1102,7 @@ function broadcastToRoom(roomId: string, message: any) {
 - [x] Next.js 16 project setup (App Router)
 - [x] Better Auth integration (email/password + Google OAuth)
 - [x] Drizzle ORM + Neon connection
-- [x] Neon dev branches for local development
+- [x] Docker Compose for local development
 - [x] Pulumi infrastructure (Cloud Run + Neon)
 - [x] CI/CD with GitHub Actions (verify + release workflows)
 - [x] Staging environment deployed
@@ -1137,14 +1118,14 @@ Cloud Run (Next.js) ──► Neon PostgreSQL (staging)
 
 **Completed:**
 
-- Local development with PostgreSQL 17
-- Database layer (`src/db/`) with Drizzle ORM
+- Local development with Docker Compose (PostgreSQL 17)
+- Database layer (`src/db/`) with Drizzle ORM + postgres.js
 - Neon staging project via Pulumi (terraform-provider bridge)
 - Health check endpoint: `/api/health/db`
 - Better Auth with email/password and Google OAuth
 - RLS (Row-Level Security) with `withRLS()` helper
 - CI/CD: verify.yml (lint, types, tests) and release.yml (deploy)
-- E2E tests with ephemeral Neon branches
+- Tests with Testcontainers (ephemeral PostgreSQL containers)
 
 **Estimated Time:** 1-2 weeks
 
@@ -1216,9 +1197,9 @@ Cloud Run (Next.js) ──► Neon PostgreSQL
 
 ### Environment Variables by Context
 
-| Variable                         | Local           | Staging             | Prod             | Description           |
-| -------------------------------- | --------------- | ------------------- | ---------------- | --------------------- |
-| `DATABASE_URL`                   | Neon dev branch | Neon staging branch | Neon main branch | PostgreSQL connection |
+| Variable                         | Local              | Staging             | Prod             | Description           |
+| -------------------------------- | ------------------ | ------------------- | ---------------- | --------------------- |
+| `DATABASE_URL`                   | Docker (localhost) | Neon staging branch | Neon main branch | PostgreSQL connection |
 | `BETTER_AUTH_SECRET`             | dev-secret      | Secret Manager      | Secret Manager   | Auth encryption key   |
 | `BETTER_AUTH_URL`                | localhost:3000  | staging URL         | prod URL         | Auth callback URL     |
 | `GCP_PROJECT_ID`                 | -               | project-id          | project-id       | GCP project           |
@@ -1286,7 +1267,7 @@ Key features:
 
 CI/CD is fully implemented with two workflows:
 
-- **verify.yml** — Runs on PR: lint, type-check, unit tests, E2E tests (with ephemeral Neon branch)
+- **verify.yml** — Runs on PR: lint, type-check, unit tests, E2E tests (with Testcontainers)
 - **release.yml** — Runs on push to main: deploys to staging via Pulumi
 
 See [CI-CD.md](./CI-CD.md) for detailed documentation.
@@ -1368,13 +1349,13 @@ When the app grows, consider:
 
 ```bash
 # Local Development
-pnpm db:up                        # Start PostgreSQL + Neon proxy
+pnpm db:up                        # Start PostgreSQL (Docker Compose)
 pnpm db:down                      # Stop local database
-pnpm dev:portal                   # Start Next.js dev server
+pnpm dev                          # Start Next.js dev server
 pnpm db:studio                    # Open Drizzle Studio
 pnpm db:generate                  # Generate migration from schema
-pnpm db:migrate                   # Apply migrations
-pnpm db:push                      # Push schema directly (dev)
+pnpm db:migrate:all               # Apply migrations + RLS policies
+pnpm db:seed                      # Seed test data
 
 # Pulumi Infrastructure (from root)
 pnpm infra:preview:staging        # Preview staging changes

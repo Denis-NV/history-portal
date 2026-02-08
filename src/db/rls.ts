@@ -1,4 +1,4 @@
-import { dbPool } from "./client";
+import { db } from "./client";
 import { sql } from "drizzle-orm";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import type { PgTransaction, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -6,7 +6,6 @@ import type * as schema from "./schema";
 
 /**
  * Transaction type for RLS operations.
- * Supports both node-postgres (local) and neon-serverless (production) drivers.
  */
 export type RLSTransaction = PgTransaction<
   PgQueryResultHKT,
@@ -39,7 +38,7 @@ export async function withRLS<T>(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return dbPool.transaction(async (tx: any) => {
+  return db.transaction(async (tx: any) => {
     // Switch to app_user role which doesn't have BYPASSRLS
     // This ensures RLS policies are enforced
     await tx.execute(sql.raw(`SET LOCAL ROLE app_user`));
@@ -72,7 +71,7 @@ export async function withAdminAccess<T>(
   operation: (tx: RLSTransaction) => Promise<T>
 ): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return dbPool.transaction(async (tx: any) => {
+  return db.transaction(async (tx: any) => {
     // Set admin flag to bypass RLS
     await tx.execute(sql`SET LOCAL app.is_admin = 'true'`);
 

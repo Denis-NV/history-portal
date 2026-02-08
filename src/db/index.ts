@@ -2,12 +2,12 @@
 // Database Layer
 // ─────────────────────────────────────────────────────────────────────────────
 // Database client and schema exports for the history-portal project.
-// Uses @neondatabase/serverless driver for all environments (local, CI, cloud).
+// Uses postgres.js driver for all environments (local, CI, cloud).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Database clients
-export { db, dbPool } from "./client";
-export type { DbClient, DbPoolClient } from "./client";
+// Database client
+export { db } from "./client";
+export type { DbClient } from "./client";
 
 // Re-export drizzle-orm utilities (single source to avoid version conflicts)
 export {

@@ -1,5 +1,5 @@
 /**
- * Reset the local development database (Neon dev branch).
+ * Reset the local development database.
  *
  * Clears all schemas and re-runs migrations for a clean slate.
  *
@@ -8,17 +8,15 @@
 
 import postgres from "postgres";
 import { execSync } from "node:child_process";
-import { userInfo } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { connectionString } from "../../src/db/config";
 
-const username = userInfo().username;
-const DEV_BRANCH_NAME = `dev-${username}`;
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function resetDatabase() {
-  console.log("🌐 Resetting Neon dev branch...");
-  console.log(`   Branch: ${DEV_BRANCH_NAME}`);
+  console.log("🔄 Resetting local database...");
 
   // Drop and recreate schemas for a clean slate
   // This ensures we rely on migrations, not copied data from main
@@ -40,7 +38,7 @@ async function resetDatabase() {
   console.log("🔄 Running migrations...");
   execSync("pnpm db:migrate:all", {
     stdio: "inherit",
-    cwd: resolve(import.meta.dirname, "../.."),
+    cwd: resolve(__dirname, "../.."),
     env: { ...process.env, DATABASE_URL: connectionString },
   });
 

@@ -1,33 +1,28 @@
-import { neon, neonConfig, Pool as NeonPool } from "@neondatabase/serverless";
-import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
-import { drizzle as drizzleWs } from "drizzle-orm/neon-serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
 import { getConnectionString } from "./config";
 import * as schema from "./schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Database Clients (Neon Serverless) — Lazy Initialized
+// Database Client (postgres.js) — Lazy Initialized
 // ─────────────────────────────────────────────────────────────────────────────
-// db     - HTTP client for simple queries (stateless, lower latency)
-// dbPool - WebSocket pool for transactions and interactive queries
+// Single client for all queries (simple reads, transactions, RLS).
+// postgres.js handles connection pooling internally.
 //
-// Clients are created on first use via Proxy to avoid errors during Next.js
-// build (DATABASE_URL is a runtime secret, unavailable at Docker build time).
+// Created on first use via Proxy to avoid errors during Next.js build
+// (DATABASE_URL is a runtime secret, unavailable at Docker build time).
 // ─────────────────────────────────────────────────────────────────────────────
 
-type HttpDb = ReturnType<typeof drizzleHttp<typeof schema>>;
-type WsDb = ReturnType<typeof drizzleWs<typeof schema>>;
+type Db = ReturnType<typeof drizzle<typeof schema>>;
 
-let _db: HttpDb;
-let _dbPool: WsDb;
+let _db: Db;
 
-const initClients = () => {
+const initClient = () => {
   if (!_db) {
     const connectionString = getConnectionString();
-    neonConfig.webSocketConstructor = ws;
-    _db = drizzleHttp(neon(connectionString), { schema });
-    _dbPool = drizzleWs(new NeonPool({ connectionString }), { schema });
+    const client = postgres(connectionString);
+    _db = drizzle(client, { schema });
   }
 };
 
@@ -40,16 +35,10 @@ const lazyProxy = <T extends object>(getTarget: () => T): T =>
     },
   });
 
-export const db: HttpDb = lazyProxy(() => {
-  initClients();
+export const db: Db = lazyProxy(() => {
+  initClient();
   return _db;
 });
 
-export const dbPool: WsDb = lazyProxy(() => {
-  initClients();
-  return _dbPool;
-});
-
 // Export types
-export type DbClient = HttpDb;
-export type DbPoolClient = WsDb;
+export type DbClient = Db;

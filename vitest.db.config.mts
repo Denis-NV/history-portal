@@ -15,7 +15,7 @@ export default defineConfig({
     // Database tests must run sequentially (RLS policies test one user at a time)
     fileParallelism: false,
 
-    // Ephemeral Neon branch setup/teardown
+    // Testcontainer setup/teardown
     globalSetup: ["./src/db/test-utils/global-setup.ts"],
     setupFiles: ["./src/db/test-utils/setup.ts"],
 
