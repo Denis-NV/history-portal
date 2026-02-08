@@ -14,7 +14,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Application Role for RLS
 -- ─────────────────────────────────────────────────────────────────────────────
--- The neondb_owner role has BYPASSRLS, so we need a separate role for RLS.
+-- The database owner role has BYPASSRLS, so we need a separate role for RLS.
 -- This role is used via SET ROLE within transactions.
 DO $$
 BEGIN
@@ -32,8 +32,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
--- Allow neondb_owner to switch to app_user role
-GRANT app_user TO neondb_owner;
+-- Allow the current database owner to switch to app_user role
+-- Uses current_user so it works for both neondb_owner (Neon) and postgres (Docker)
+DO $$ BEGIN EXECUTE format('GRANT app_user TO %I', current_user); END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ─────────────────────────────────────────────────────────────────────────────

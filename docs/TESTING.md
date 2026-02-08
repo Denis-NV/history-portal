@@ -108,7 +108,7 @@ import { TEST_USERS, TEST_PASSWORD } from "../test-users";
 
 ### Database Tests
 
-- **Config:** `vitest.db.config.ts`
+- **Config:** `vitest.db.config.mts`
 - **Sequential execution:** `fileParallelism: false` ensures RLS tests run sequentially
 - **No DOM:** Tests run in Node environment
 - **Setup:** `src/db/test-utils/setup.ts`
@@ -305,8 +305,7 @@ test.describe("Timeline", () => {
 ├── e2e/
 │   ├── auth.setup.ts      # Auth setup project
 │   ├── fixtures.ts        # Custom test fixtures
-│   ├── global-setup.ts    # Loads DATABASE_URL from .env.test
-│   ├── global-teardown.ts # Deletes ephemeral branch
+│   ├── global-setup.ts    # Starts Testcontainer, runs migrations + seed
 │   ├── test-users.ts      # Test user data
 │   └── tests/
 │       └── timeline.spec.ts  # E2E test specs
@@ -331,10 +330,10 @@ vi.mock("@/app/actions", () => ({
 RLS tests run against the **real database** (no mocking). This is intentional:
 
 - Tests verify actual PostgreSQL RLS policies
-- Uses an ephemeral Neon branch (fresh, isolated, seeded)
+- Uses a Testcontainer (ephemeral PostgreSQL, fresh, isolated, seeded)
 - Ensures security policies work as expected
 
-See [Ephemeral Test Branches](#ephemeral-test-branches) for details.
+See [Testcontainer Test Isolation](#testcontainer-test-isolation) for details.
 
 ### Authentication in Component Tests
 
@@ -349,44 +348,35 @@ const mockSession = createMockSession(TEST_USERS.alice);
 
 ---
 
-## Ephemeral Test Branches
+## Testcontainer Test Isolation
 
-Both RLS tests (Vitest) and E2E tests (Playwright) use **ephemeral Neon branches** for test isolation. This ensures:
+Both RLS tests (Vitest) and E2E tests (Playwright) use **Testcontainers** (ephemeral PostgreSQL containers) for test isolation. This ensures:
 
 - Tests run against a known, seeded database state
 - No interference from development data changes
-- Parallel test runs in CI don't conflict
+- No network access or external services required
 - Tests are predictable and reproducible
 
 ### How It Works
 
-**Vitest (unit/integration tests):**
+**Vitest (database tests):**
 
-1. Global setup creates ephemeral branch, migrates, seeds
-2. Tests execute against the isolated branch
-3. Global teardown deletes the branch
+1. Global setup starts a PostgreSQL Testcontainer, migrates, seeds
+2. `DATABASE_URL` is set to the container's connection string
+3. Tests execute against the isolated container
+4. Global teardown stops and removes the container
 
 **Playwright (E2E tests):**
 
-1. webServer command creates ephemeral branch before starting Next.js
-2. Global setup loads DATABASE_URL for the Playwright process
-3. Tests execute against the isolated branch
-4. Global teardown deletes the branch
+1. Global setup starts a PostgreSQL Testcontainer, migrates, seeds
+2. Writes `.env.test` with `DATABASE_URL` for the Next.js webServer
+3. webServer sources `.env.test` and starts Next.js
+4. Tests execute against the isolated container
+5. Teardown (returned from globalSetup) stops container and removes `.env.test`
 
-Each test runner manages its own branch independently.
+### Prerequisites
 
-### Keeping Branches for Debugging
-
-To preserve the ephemeral branch after tests (for debugging):
-
-```bash
-# Set KEEP_TEST_BRANCH to skip cleanup
-KEEP_TEST_BRANCH=1 pnpm test:e2e
-
-# When done debugging, delete the .env.test file
-# The orphaned Neon branch will auto-suspend
-rm .env.test
-```
+- **Docker** must be running locally and in CI (ubuntu-latest has Docker pre-installed)
 
 ---
 
@@ -396,30 +386,27 @@ Tests are integrated into the CI pipeline via the [verify workflow](../.github/w
 
 ### What Runs in CI
 
-| Test Type         | Runs In CI | Notes                               |
-| ----------------- | :--------: | ----------------------------------- |
-| Linting           |     ✅     | `pnpm lint`                         |
-| Unit tests        |     ✅     | Against ephemeral Neon branch       |
-| Integration tests |     ✅     | RLS tests against ephemeral branch  |
-| E2E tests         |     ✅     | Playwright against ephemeral branch |
+| Test Type         | Runs In CI | Notes                                  |
+| ----------------- | :--------: | -------------------------------------- |
+| Linting           |     ✅     | `pnpm lint`                            |
+| Unit tests        |     ✅     | Against Testcontainer                  |
+| Integration tests |     ✅     | RLS tests against Testcontainer        |
+| E2E tests         |     ✅     | Playwright against Testcontainer       |
 
 ### CI Workflow
 
-Each test runner creates and deletes its own ephemeral branch:
+Each test runner starts and stops its own Testcontainer:
 
 ```
-Vitest    → Creates branch → Runs tests → Deletes branch
-Playwright → Creates branch → Runs tests → Deletes branch
+Vitest (db) → Starts container → Runs tests → Stops container
+Playwright  → Starts container → Runs tests → Stops container
 ```
 
-This ensures complete isolation - unit/integration tests and E2E tests never share data.
+This ensures complete isolation. Docker is pre-installed on `ubuntu-latest` — no extra setup needed.
 
 ### Secrets Required
 
-| Secret                | Purpose                         |
-| --------------------- | ------------------------------- |
-| `PULUMI_ACCESS_TOKEN` | Get Neon project ID from Pulumi |
-| `NEON_API_KEY`        | Authenticate with Neon CLI      |
+No secrets are required for the verify workflow. Tests use Testcontainers (local Docker).
 
 See [CI-CD.md](./CI-CD.md) for full setup instructions.
 
@@ -466,35 +453,25 @@ export const TEST_USERS = {
 - **E2E tests:** Increase timeout in `playwright.config.ts`
 - **Component tests:** Check for missing async cleanup
 
-### Ephemeral Branch Issues
+### Testcontainer Issues
 
-**Branch creation fails:**
-
-```bash
-# Ensure you're authenticated with Neon
-pnpm exec neonctl auth
-
-# Check Pulumi staging stack is deployed (for project ID)
-pnpm infra:up:staging
-```
-
-**Orphaned test branches:**
-If tests are interrupted, branches may not be cleaned up:
+**Docker not running:**
 
 ```bash
-# List all branches to find orphaned test-* branches
-pnpm exec neonctl branches list
+# Ensure Docker daemon is running
+docker info
 
-# Delete manually via Neon console or CLI
+# On macOS, start Docker Desktop
+open -a Docker
 ```
 
 **Stale .env.test file:**
-If `.env.test` points to a deleted branch:
+If `.env.test` points to a stopped container:
 
 ```bash
 # Remove stale env file
 rm .env.test
 
-# Re-run tests (will create fresh branch)
-pnpm test
+# Re-run tests (will create fresh container)
+pnpm test:e2e
 ```

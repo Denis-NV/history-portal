@@ -18,7 +18,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       database: "connected",
-      serverTime: result.rows[0]?.server_time,
+      serverTime: result[0]?.server_time,
     });
   } catch (error) {
     console.error("Database health check failed:", error);

@@ -6,9 +6,9 @@
 # 2. Called by release.yml before deploying
 #
 # Test strategy:
-# - Unit/integration tests and E2E tests run against ephemeral Neon branches
-# - Branch is created by test global setup, cleaned up by Playwright teardown
-# - Same flow works locally and in CI (no special CI handling needed)
+# - Unit/integration tests and E2E tests use Testcontainers (ephemeral PostgreSQL)
+# - Docker is pre-installed on ubuntu-latest — no extra setup needed
+# - Same flow works locally and in CI
 
 name: Verify
 
@@ -19,19 +19,11 @@ on:
 
   # Allow other workflows to call this one
   workflow_call:
-    secrets:
-      PULUMI_ACCESS_TOKEN:
-        required: true
-      NEON_API_KEY:
-        required: true
 
 jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
-    env:
-      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -54,9 +46,6 @@ jobs:
 
       - name: Run unit tests
         run: pnpm test
-
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@v6
 
       - name: Run database tests
         run: pnpm test:db

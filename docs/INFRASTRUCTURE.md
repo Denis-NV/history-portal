@@ -37,9 +37,9 @@ Local Development                    Cloud Infrastructure
              │                      │   │      Cloud Run          │   │
              ▼                      │   │   (Next.js Container)   │   │
 ┌─────────────────────────────┐     │   └───────────┬─────────────┘   │
-│  Neon Dev Branch            │     │               │                 │
-│  (from staging project)     │     │   ┌───────────▼─────────────┐   │
-│                             │     │   │      Neon Database      │   │
+│  Docker Compose             │     │               │                 │
+│  (PostgreSQL 17)            │     │   ┌───────────▼─────────────┐   │
+│  localhost:5432             │     │   │      Neon Database      │   │
 │                             │     │   │   (Serverless Postgres) │   │
 └─────────────────────────────┘     └─────────────────────────────────┘
 ```
@@ -48,12 +48,12 @@ Local Development                    Cloud Infrastructure
 
 | Environment | Pulumi Stack | Database                     | Purpose                     |
 | ----------- | ------------ | ---------------------------- | --------------------------- |
-| Local       | (none)       | Neon `dev-{username}` branch | Development with hot reload |
+| Local       | (none)       | Docker Compose (PostgreSQL)  | Development with hot reload |
+| Tests       | (none)       | Testcontainers (ephemeral)   | Automated testing           |
 | Staging     | `staging`    | Neon Project (staging)       | Pre-production testing      |
 | Production  | `prod`       | Neon Project (prod)          | Live application            |
-| CI/CD       | (ephemeral)  | Neon Branch (from staging)   | Automated testing           |
 
-> **Note:** Staging and Production use separate Neon projects for complete isolation. CI/CD tests and local Neon development use branches from the staging project.
+> **Note:** Local dev and tests use Docker (no cloud access needed). Staging and Production use separate Neon projects for complete isolation.
 
 ---
 
@@ -85,29 +85,30 @@ pnpm install
 
 ## 3. Local Development
 
-Local development uses a personal Neon branch from the staging project.
+Local development uses a Docker Compose PostgreSQL container.
 
-### Setting Up Your Dev Branch
+### Getting Started
 
 ```bash
-# One-time setup: Create a personal dev branch on staging
-pnpm db:setup:neon-dev
+# Start local PostgreSQL
+pnpm db:up
 
-# Output: DATABASE_URL connection string
-# Add this to .env.local
+# Run migrations and seed
+pnpm db:migrate:all
+pnpm db:seed
+
+# Start Next.js dev server
+pnpm dev
 ```
 
-The script:
-
-1. Gets the staging Neon project ID from Pulumi
-2. Creates a `dev-{username}` branch (e.g., `dev-denis`) if it doesn't exist
-3. Outputs the connection string for your `.env.local`
+**Prerequisites:** Docker must be installed and running.
 
 **Benefits:**
 
-- Same Neon branching model as CI/CD
-- Test branch-based migrations locally
-- Each developer gets their own isolated branch
+- Fast, offline-capable development
+- Same PostgreSQL 17 version as Neon production
+- Persistent data volume across restarts
+- No cloud access or API keys needed
 
 ### Resetting the Database
 
@@ -122,8 +123,8 @@ This clears all schemas and re-runs migrations for a clean slate.
 `.env.local` is the single source of truth for `DATABASE_URL`:
 
 ```bash
-# Run `pnpm db:setup:neon-dev` to get this connection string
-DATABASE_URL=postgresql://...@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
+# Local Docker Compose
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/history_portal
 ```
 
 Next.js loads `.env.local` automatically at startup.
@@ -387,7 +388,7 @@ config:
 
 2. **Static files location:** Similarly, `.next/static` must be at `./.next/static`.
 
-3. **Runtime secrets & lazy DB clients:** `DATABASE_URL` is injected by Cloud Run at runtime, not available during `next build`. The `@/db` module uses lazy-initialized Proxy wrappers so importing it is safe at build time — the actual Neon connection is only created on first query. See [ARCHITECTURE.md - Lazy Initialization](./ARCHITECTURE.md#lazy-initialization).
+3. **Runtime secrets & lazy DB clients:** `DATABASE_URL` is injected by Cloud Run at runtime, not available during `next build`. The `@/db` module uses a lazy-initialized Proxy wrapper so importing it is safe at build time — the actual postgres.js connection is only created on first query. See [ARCHITECTURE.md - Lazy Initialization](./ARCHITECTURE.md#lazy-initialization).
 
 ### Configure Docker Authentication
 
