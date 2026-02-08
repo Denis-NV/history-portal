@@ -4,12 +4,13 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright Configuration for E2E Tests
  *
  * Test Strategy:
- * - globalSetup starts a PostgreSQL Testcontainer for test isolation
- * - Migrations and seed data are applied to the ephemeral container
+ * - webServer command (e2e/dev-server.ts) starts a PostgreSQL Testcontainer,
+ *   runs migrations + seed, then starts Next.js dev server
+ * - globalSetup loads DATABASE_URL from .env.test for the Playwright process
  * - Uses seeded test users (Alice, Bob, Carol, Admin) for user-based isolation
  * - Each user has their own authenticated storage state
  * - Tests can run in parallel without conflicting because each user has unique data
- * - Testcontainer is stopped automatically via globalSetup's teardown return value
+ * - Testcontainer is stopped when Playwright terminates the webServer process
  *
  * Test Users:
  * - alice@test.local (15 cards) - Primary test user
@@ -19,7 +20,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 
 export default defineConfig({
-  // Global setup starts Testcontainer, runs migrations + seed, returns teardown
+  // Global setup loads DATABASE_URL from .env.test (created by webServer script)
   globalSetup: "./e2e/global-setup.ts",
 
   // Test directory
@@ -113,12 +114,13 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
+  // Playwright starts webServer BEFORE globalSetup, so the Testcontainer
+  // setup and Next.js startup are handled by the dev-server.ts script
   webServer: {
-    // Source .env.test (written by globalSetup with Testcontainer DATABASE_URL)
-    command: "set -a && . ./.env.test && set +a && pnpm dev",
+    command: "pnpm exec tsx e2e/dev-server.ts",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 60 * 1000,
+    timeout: 120 * 1000, // Testcontainer + migrations + seed + Next.js startup
     stdout: "pipe",
     stderr: "pipe",
   },
