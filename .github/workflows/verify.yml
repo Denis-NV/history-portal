@@ -5,10 +5,11 @@
 # 1. Required in branch protection (blocks PRs if failing)
 # 2. Called by release.yml before deploying
 #
-# Test strategy:
-# - Unit/integration tests and E2E tests use Testcontainers (ephemeral PostgreSQL)
-# - Docker is pre-installed on ubuntu-latest — no extra setup needed
-# - Same flow works locally and in CI
+# Jobs run in parallel:
+# - lint-and-test: linting, type-checking, unit tests, database tests
+# - e2e: Playwright E2E tests (uses Testcontainers for ephemeral PostgreSQL)
+#
+# Both jobs are required status checks in branch protection.
 
 name: Verify
 
@@ -19,6 +20,11 @@ on:
 
   # Allow other workflows to call this one
   workflow_call:
+
+# Cancel superseded runs for the same PR to save CI minutes
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-test:
@@ -41,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check types
+        run: pnpm check-types
+
       - name: Run linting
         run: pnpm lint
 
@@ -49,6 +58,26 @@ jobs:
 
       - name: Run database tests
         run: pnpm test:db
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version
         id: playwright-version
