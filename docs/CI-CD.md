@@ -2,7 +2,7 @@
 
 > **Purpose:** This document provides instructions for setting up GitHub Actions workflows for automated testing and deployment.
 
-**Last Updated:** December 19, 2025
+**Last Updated:** February 15, 2026
 
 ---
 
@@ -21,44 +21,44 @@
 ### Pipeline Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        CI/CD Pipeline                               │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   Pull Request to main                    Push to main              │
-│          │                                      │                   │
-│          ▼                                      ▼                   │
-│   ┌─────────────┐                        ┌─────────────┐            │
-│   │   Verify    │                        │   Verify    │            │
-│   │  (Lint)     │                        │  (Lint)     │            │
-│   └─────────────┘                        └──────┬──────┘            │
-│          │                                      │                   │
-│          ▼                                      ▼                   │
-│   ┌─────────────┐                        ┌─────────────┐            │
-│   │  Required   │                        │  Migrate    │            │
-│   │  to Merge   │                        │  + Seed     │            │
-│   └─────────────┘                        └──────┬──────┘            │
-│                                                 │                   │
-│                                                 ▼                   │
-│                                          ┌─────────────┐            │
-│                                          │   Deploy    │            │
-│                                          │  (Staging)  │            │
-│                                          └──────┬──────┘            │
-│                                                 │                   │
-│                                                 ▼ (on failure)      │
-│                                          ┌─────────────┐            │
-│                                          │  Rollback   │            │
-│                                          │  (PITR)     │            │
-│                                          └─────────────┘            │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         CI/CD Pipeline                               │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   Pull Request to main                     Push to main              │
+│          │                                       │                   │
+│          ▼                                       ▼                   │
+│   ┌─────────────┬─────────────┐    ┌─────────────┬─────────────┐     │
+│   │ Lint & Test │  E2E Tests  │    │ Lint & Test │  E2E Tests  │     │
+│   │ (parallel)  │  (parallel) │    │ (parallel)  │  (parallel) │     │
+│   └─────────────┴─────────────┘    └──────┬──────┴──────┬──────┘     │
+│          │                                └──────┬──────┘            │
+│          ▼                                       ▼                   │
+│   ┌─────────────┐                         ┌─────────────┐            │
+│   │  Required   │                         │  Migrate    │            │
+│   │  to Merge   │                         │  + Seed     │            │
+│   └─────────────┘                         └──────┬──────┘            │
+│                                                  │                   │
+│                                                  ▼                   │
+│                                           ┌─────────────┐            │
+│                                           │   Deploy    │            │
+│                                           │  (Staging)  │            │
+│                                           └──────┬──────┘            │
+│                                                  │                   │
+│                                                  ▼ (on failure)      │
+│                                           ┌─────────────┐            │
+│                                           │  Rollback   │            │
+│                                           │  (PITR)     │            │
+│                                           └─────────────┘            │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Workflow Files
 
 | Workflow                                        | Trigger      | Purpose                      |
 | ----------------------------------------------- | ------------ | ---------------------------- |
-| [verify.yml](../.github/workflows/verify.yml)   | PRs to main  | Lint & test (required check) |
+| [verify.yml](../.github/workflows/verify.yml)   | PRs to main  | Lint & test + E2E (two parallel required checks) |
 | [release.yml](../.github/workflows/release.yml) | Push to main | Deploy to staging            |
 
 ---
@@ -69,29 +69,25 @@
 
 **File:** [.github/workflows/verify.yml](../.github/workflows/verify.yml)
 
-**Purpose:** Run linting and tests on pull requests. This workflow is:
+**Purpose:** Run linting, type-checking, and tests on pull requests. This workflow is:
 
-- Required in branch protection (blocks PRs if failing)
+- Required in branch protection (both jobs block PRs if failing)
 - Reusable by other workflows via `workflow_call`
+- Cancels superseded runs on the same PR to save CI minutes
 
 **Triggers:**
 
 - Pull requests targeting `main`
 - Called by `release.yml` before deployment
 
-**Job:** `Lint & Test`
+**Jobs (run in parallel):**
 
-**Steps:**
+| Job | Steps |
+|-----|-------|
+| **Lint & Test** | Type-check → Lint → Unit tests → DB tests (Testcontainer) |
+| **E2E Tests** | Install Playwright browsers → E2E tests (Testcontainer) |
 
-1. Checkout code
-2. Setup pnpm and Node.js
-3. Install dependencies
-4. Run linting (`pnpm lint`)
-5. Run unit tests (`pnpm test`)
-6. Run database tests (`pnpm test:db`) — Testcontainer (ephemeral PostgreSQL)
-7. Install Playwright browsers
-8. Run E2E tests (`pnpm test:e2e`) — Testcontainer (ephemeral PostgreSQL)
-9. Upload Playwright report on failure
+Running these in parallel reduces total wall time from `sum(all steps)` to `max(job1, job2)`.
 
 **Testcontainer Flow:**
 
@@ -252,7 +248,7 @@ Configure branch protection to require the verify workflow before merging:
    - ✅ Require a pull request before merging
    - ✅ Require status checks to pass before merging
    - ✅ Require branches to be up to date before merging
-4. Add required status check: `Lint & Test`
+4. Add required status checks: `Lint & Test` and `E2E Tests`
 
 ---
 
@@ -306,4 +302,4 @@ Common issues:
 ---
 
 **Document Maintainer:** AI Assistant  
-**Last Updated:** December 19, 2025
+**Last Updated:** February 15, 2026
