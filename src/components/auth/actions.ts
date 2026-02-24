@@ -10,6 +10,9 @@ import {
 } from "./schemas";
 import { auth } from "@/lib/auth";
 import { AUTH_ROUTES, REDIRECT } from "@/const";
+import { getLogger } from "@/lib/telemetry";
+
+const log = getLogger("auth");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Types
@@ -37,7 +40,7 @@ function getUserFriendlyError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : String(err);
 
   // Log for server-side debugging
-  console.error("[Auth Error]", message);
+  log.error({ err }, "Auth error");
 
   // Database connection errors
   if (

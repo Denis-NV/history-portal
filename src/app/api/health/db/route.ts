@@ -1,5 +1,8 @@
 import { db, sql } from "@/db";
 import { NextResponse } from "next/server";
+import { getLogger } from "@/lib/telemetry";
+
+const log = getLogger("api.health");
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +24,7 @@ export async function GET() {
       serverTime: result[0]?.server_time,
     });
   } catch (error) {
-    console.error("Database health check failed:", error);
+    log.error({ err: error }, "Database health check failed");
 
     return NextResponse.json(
       {
