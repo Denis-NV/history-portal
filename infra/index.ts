@@ -170,6 +170,30 @@ const service = new gcp.cloudrun.Service("portal", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Required GCP APIs
+// Must be enabled before IAM bindings can be created.
+// Cloud Resource Manager API is required for all project-level IAM policy
+// management — without it, gcp.projects.IAMMember calls will fail with 403.
+// ─────────────────────────────────────────────────────────────────────────────
+const cloudResourceManagerApi = new gcp.projects.Service("cloud-resource-manager-api", {
+  service: "cloudresourcemanager.googleapis.com",
+  project,
+  disableOnDestroy: false,
+});
+
+const cloudTraceApi = new gcp.projects.Service("cloud-trace-api", {
+  service: "cloudtrace.googleapis.com",
+  project,
+  disableOnDestroy: false,
+});
+
+const monitoringApi = new gcp.projects.Service("monitoring-api", {
+  service: "monitoring.googleapis.com",
+  project,
+  disableOnDestroy: false,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // IAM - Observability (Cloud Trace + Cloud Monitoring)
 // The default Compute Engine service account needs these roles to export
 // traces and metrics from the OTel SDK to GCP.
@@ -180,13 +204,13 @@ new gcp.projects.IAMMember("portal-trace-agent", {
   project,
   role: "roles/cloudtrace.agent",
   member: defaultComputeSA,
-});
+}, { dependsOn: [cloudResourceManagerApi, cloudTraceApi] });
 
 new gcp.projects.IAMMember("portal-metric-writer", {
   project,
   role: "roles/monitoring.metricWriter",
   member: defaultComputeSA,
-});
+}, { dependsOn: [cloudResourceManagerApi, monitoringApi] });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IAM - Allow public access (unauthenticated)
