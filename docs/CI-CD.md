@@ -202,6 +202,17 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
+# Required for Pulumi to enable/disable GCP APIs via gcp.projects.Service resources
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/serviceusage.serviceUsageAdmin"
+
+# Required for Pulumi to set project-level IAM bindings via gcp.projects.IAMMember
+# (e.g. granting observability roles to the compute service account)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/resourcemanager.projectIamAdmin"
+
 # Allow GitHub Actions to impersonate the service account
 gcloud iam service-accounts add-iam-policy-binding \
   "github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
