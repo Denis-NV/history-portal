@@ -172,8 +172,11 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   secretmanager.googleapis.com \
   cloudbuild.googleapis.com \
-  compute.googleapis.com  # Silences Pulumi GCP provider warning
+  compute.googleapis.com \
+  cloudresourcemanager.googleapis.com
 ```
+
+> **Note:** `cloudresourcemanager.googleapis.com` must be enabled **manually** as a one-time bootstrap step — it cannot be managed by Pulumi's `gcp.projects.Service` resource because setting project-level IAM policies (which Pulumi uses to track that resource) itself requires the CRM API. The remaining observability APIs (`cloudtrace.googleapis.com`, `monitoring.googleapis.com`) are enabled automatically by Pulumi on first deploy.
 
 ### Step 5: Set Up Billing Alerts (Recommended)
 
@@ -325,12 +328,17 @@ pnpm pulumi config
 
 ### Current Resources (Staging)
 
-| Resource          | Name                     | Status      | Purpose                    |
-| ----------------- | ------------------------ | ----------- | -------------------------- |
-| Artifact Registry | `portal`                 | ✅ Deployed | Docker image storage       |
-| Cloud Run Service | `portal-staging`         | ✅ Deployed | Next.js container hosting  |
-| IAM Policy        | `allUsers`               | ✅ Deployed | Public access to Cloud Run |
-| Neon Project      | `history-portal-staging` | ✅ Deployed | Serverless PostgreSQL 17   |
+| Resource          | Name                     | Status      | Purpose                                      |
+| ----------------- | ------------------------ | ----------- | -------------------------------------------- |
+| Artifact Registry | `portal`                 | ✅ Deployed | Docker image storage                         |
+| Cloud Run Service | `portal-staging`         | ✅ Deployed | Next.js container hosting                    |
+| IAM Policy        | `allUsers`               | ✅ Deployed | Public access to Cloud Run                   |
+| Neon Project      | `history-portal-staging` | ✅ Deployed | Serverless PostgreSQL 17                     |
+| GCP API           | `cloudresourcemanager`   | ✅ Deployed | Project IAM management (manual bootstrap)    |
+| GCP API           | `cloudtrace`             | ✅ Deployed | Cloud Trace export (managed by Pulumi)       |
+| GCP API           | `monitoring`             | ✅ Deployed | Cloud Monitoring export (managed by Pulumi)  |
+| IAM Member        | `portal-trace-agent`     | ✅ Deployed | Grants compute SA `roles/cloudtrace.agent`   |
+| IAM Member        | `portal-metric-writer`   | ✅ Deployed | Grants compute SA `roles/monitoring.metricWriter` |
 
 **Live URL:** https://portal-staging-7qac6lyjqa-nw.a.run.app  
 **Health Check:** https://portal-staging-7qac6lyjqa-nw.a.run.app/api/health/db
