@@ -59,6 +59,12 @@ Better Auth with session-based auth (HTTP-only cookies), email+password with ver
 ### API route pattern
 API routes importing from `@/db` must have `export const dynamic = "force-dynamic"` to prevent pre-rendering during Docker builds. Each route has a co-located `types.ts` with response types validated using `satisfies`.
 
+### Observability (src/lib/telemetry/)
+OpenTelemetry for traces and metrics, pino for structured logging. Exported to GCP via OTLP.
+- Use `getLogger(component)` from `@/lib/telemetry` for structured logging (not `console.error`)
+- Use `withSpan(name, attributes, fn)` from `@/lib/telemetry` for custom trace spans
+- OTel is auto-enabled in production, disabled in dev unless `OTEL_ENABLED=true`
+
 ## Code Conventions
 
 - **`type` over `interface`** for all TypeScript types
@@ -84,4 +90,4 @@ Password for all: `Test123!`
 
 ## Detailed Documentation
 
-See [docs/](docs/) for deep dives: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [AUTHENTICATION.md](docs/AUTHENTICATION.md), [CONVENTIONS.md](docs/CONVENTIONS.md), [TESTING.md](docs/TESTING.md), [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md), [CI-CD.md](docs/CI-CD.md).
+See [docs/](docs/) for deep dives: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [AUTHENTICATION.md](docs/AUTHENTICATION.md), [CONVENTIONS.md](docs/CONVENTIONS.md), [TESTING.md](docs/TESTING.md), [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md), [CI-CD.md](docs/CI-CD.md), [OBSERVABILITY.md](docs/OBSERVABILITY.md).

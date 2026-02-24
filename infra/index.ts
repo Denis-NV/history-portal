@@ -135,6 +135,13 @@ const service = new gcp.cloudrun.Service("portal", {
             // BETTER_AUTH_URL is needed for email verification links
             // Set via: pulumi config set appUrl "https://portal-staging-xxx.run.app"
             { name: "BETTER_AUTH_URL", value: config.require("appUrl") },
+            // Observability — OpenTelemetry + structured logging
+            { name: "GCP_PROJECT_ID", value: project },
+            { name: "OTEL_SERVICE_NAME", value: `portal-${stack}` },
+            {
+              name: "LOG_LEVEL",
+              value: stack === "prod" ? "info" : "debug",
+            },
           ],
         },
       ],
@@ -160,6 +167,25 @@ const service = new gcp.cloudrun.Service("portal", {
       latestRevision: true,
     },
   ],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IAM - Observability (Cloud Trace + Cloud Monitoring)
+// The default Compute Engine service account needs these roles to export
+// traces and metrics from the OTel SDK to GCP.
+// ─────────────────────────────────────────────────────────────────────────────
+const defaultComputeSA = `serviceAccount:${project}-compute@developer.gserviceaccount.com`;
+
+new gcp.projects.IAMMember("portal-trace-agent", {
+  project,
+  role: "roles/cloudtrace.agent",
+  member: defaultComputeSA,
+});
+
+new gcp.projects.IAMMember("portal-metric-writer", {
+  project,
+  role: "roles/monitoring.metricWriter",
+  member: defaultComputeSA,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

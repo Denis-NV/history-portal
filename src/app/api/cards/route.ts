@@ -1,6 +1,9 @@
 import { card, user, withRLS, eq } from "@/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { getLogger } from "@/lib/telemetry";
+
+const log = getLogger("api.cards");
 
 export const dynamic = "force-dynamic";
 import type { CardsResponse } from "./types";
@@ -45,7 +48,7 @@ export async function GET() {
 
     return NextResponse.json({ cards } satisfies CardsResponse);
   } catch (error) {
-    console.error("Failed to fetch cards:", error);
+    log.error({ err: error }, "Failed to fetch cards");
 
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },

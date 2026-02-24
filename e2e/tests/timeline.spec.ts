@@ -11,8 +11,9 @@ test.describe("Timeline", () => {
   test("shows user name in header", async ({ page, testUser }) => {
     await page.goto("/timeline");
 
-    // User should see their name in the header
-    await expect(page.getByText(testUser.name)).toBeVisible();
+    // User should see their name in the header (scoped to avoid matching table cells)
+    const header = page.locator("header");
+    await expect(header.getByText(testUser.name)).toBeVisible();
   });
 
   test("shows sign out button when authenticated", async ({ page }) => {

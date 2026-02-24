@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import type { PgTransaction, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type * as schema from "./schema";
+import { withSpan } from "@/lib/telemetry";
 
 /**
  * Transaction type for RLS operations.
@@ -37,19 +38,25 @@ export async function withRLS<T>(
     throw new Error("Invalid user ID format");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return db.transaction(async (tx: any) => {
-    // Switch to app_user role which doesn't have BYPASSRLS
-    // This ensures RLS policies are enforced
-    await tx.execute(sql.raw(`SET LOCAL ROLE app_user`));
+  return withSpan(
+    "db.withRLS",
+    { "db.user_id": userId, "db.rls": true },
+    async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return db.transaction(async (tx: any) => {
+        // Switch to app_user role which doesn't have BYPASSRLS
+        // This ensures RLS policies are enforced
+        await tx.execute(sql.raw(`SET LOCAL ROLE app_user`));
 
-    // Set the user ID for RLS policies
-    // Note: SET doesn't support parameterized queries, so we use raw SQL
-    // The UUID validation above prevents SQL injection
-    await tx.execute(sql.raw(`SET LOCAL app.user_id = '${userId}'`));
+        // Set the user ID for RLS policies
+        // Note: SET doesn't support parameterized queries, so we use raw SQL
+        // The UUID validation above prevents SQL injection
+        await tx.execute(sql.raw(`SET LOCAL app.user_id = '${userId}'`));
 
-    return operation(tx as RLSTransaction);
-  });
+        return operation(tx as RLSTransaction);
+      });
+    },
+  );
 }
 
 /**
@@ -70,11 +77,17 @@ export async function withRLS<T>(
 export async function withAdminAccess<T>(
   operation: (tx: RLSTransaction) => Promise<T>
 ): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return db.transaction(async (tx: any) => {
-    // Set admin flag to bypass RLS
-    await tx.execute(sql`SET LOCAL app.is_admin = 'true'`);
+  return withSpan(
+    "db.withAdminAccess",
+    { "db.rls": false, "db.admin": true },
+    async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return db.transaction(async (tx: any) => {
+        // Set admin flag to bypass RLS
+        await tx.execute(sql`SET LOCAL app.is_admin = 'true'`);
 
-    return operation(tx as RLSTransaction);
-  });
+        return operation(tx as RLSTransaction);
+      });
+    },
+  );
 }
