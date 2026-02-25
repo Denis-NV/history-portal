@@ -23,7 +23,7 @@ pnpm lint                          # ESLint
 # Testing
 pnpm test                          # Unit/integration tests (Vitest, happy-dom)
 pnpm test:watch                    # Watch mode
-pnpm test:db                       # Database/RLS tests (Vitest, node env)
+pnpm test:integration              # Integration tests (Vitest, node env, Testcontainer)
 pnpm test:e2e                      # Playwright E2E tests
 
 # Database

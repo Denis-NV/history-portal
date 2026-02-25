@@ -9,15 +9,15 @@ export default defineConfig({
   },
 
   test: {
-    include: ["src/db/**/*.test.ts"],
+    include: ["src/**/*.integration.test.{ts,tsx}"],
     exclude: ["node_modules"],
 
     // Database tests must run sequentially (RLS policies test one user at a time)
     fileParallelism: false,
 
     // Testcontainer setup/teardown
-    globalSetup: ["./src/db/test-utils/global-setup.ts"],
-    setupFiles: ["./src/db/test-utils/setup.ts"],
+    globalSetup: ["./src/test-utils/integration/global-setup.ts"],
+    setupFiles: ["./src/test-utils/integration/setup.ts"],
 
     // Node environment for database operations
     environment: "node",

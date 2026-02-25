@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { vi } from "vitest";
- * import { createMockSession, TEST_USERS } from "@/db/test-utils";
+ * import { createMockSession, TEST_USERS } from "@/test-utils";
  *
  * // Mock the session module
  * vi.mock("@/lib/auth/session", () => ({

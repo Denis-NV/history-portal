@@ -10,7 +10,7 @@
  *
  * @example
  * ```ts
- * import { TEST_USERS } from "@/db/test-utils";
+ * import { TEST_USERS } from "@/test-utils";
  *
  * // Use in RLS tests
  * const cards = await withRLS(TEST_USERS.alice.id, async (tx) => {

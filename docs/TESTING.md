@@ -4,29 +4,40 @@ This document outlines the testing strategy, conventions, and setup for the Hist
 
 ## Testing Strategy Summary
 
-| Component Type                     | Vitest (Unit/Integration) | Playwright (E2E) |
-| ---------------------------------- | :-----------------------: | :--------------: |
-| Pure functions (utils, formatters) |            ✅             |        —         |
-| Validation schemas (Zod)           |            ✅             |        —         |
-| Synchronous Client Components      |            ✅             |        —         |
-| Async Server Components            |            ❌             |        ✅        |
-| Server Actions (`"use server"`)    |            ❌             |        ✅        |
-| RLS policies (database security)   |            ✅             |        —         |
-| Full user flows                    |             —             |        ✅        |
-| Authentication flows               |             —             |        ✅        |
+Three tiers:
 
-> **Note:** Next.js 16 async Server Components and Server Actions with the `"use server"` directive should be tested via E2E tests, not unit tests. This is [the official Next.js recommendation](https://nextjs.org/docs/app/building-your-application/testing/vitest#async-server-components).
+| Tier | Command | Environment | DB |
+| ---- | ------- | ----------- | -- |
+| Unit / Component | `pnpm test` | happy-dom | None |
+| Integration | `pnpm test:integration` | node | Testcontainer |
+| E2E | `pnpm test:e2e` | Browser | Testcontainer |
+
+| What to test | Unit/Component | Integration | E2E |
+| ------------------------------------------ | :---: | :---: | :---: |
+| Pure functions (utils, formatters) | ✅ | — | — |
+| Validation schemas (Zod) | ✅ | — | — |
+| Client component rendering (state-driven) | ✅ | — | — |
+| Server Actions (`"use server"`) | ✅ (mock auth) | ✅ (real DB) | ✅ |
+| Async Server Components | ❌ | — | ✅ |
+| RLS policies (database security) | — | ✅ | — |
+| Better Auth API (sign up, sign in, etc.) | — | ✅ | — |
+| Full user flows | — | — | ✅ |
+
+> **Note on Server Actions:** The `"use server"` directive is a build-time bundler hint — at test runtime, actions are plain async functions. They are testable in Vitest by mocking the two unavoidable Next.js runtime APIs: `next/headers` (`headers()`) and `next/navigation` (`redirect()`). Do not mock `@/lib/auth` in integration tests — let it use the real Testcontainer DB.
+>
+> Async Server Components (RSC) cannot be rendered in Vitest and should be covered by E2E.
 
 ---
 
 ## Test Stack
 
-| Tool                                             | Purpose                  |
-| ------------------------------------------------ | ------------------------ |
-| [Vitest](https://vitest.dev/)                    | Unit & integration tests |
-| [Testing Library](https://testing-library.com/)  | Component testing        |
-| [happy-dom](https://github.com/nickvr/happy-dom) | DOM environment          |
-| [Playwright](https://playwright.dev/)            | E2E browser tests        |
+| Tool                                             | Purpose                        |
+| ------------------------------------------------ | ------------------------------ |
+| [Vitest](https://vitest.dev/)                    | Unit, component & integration  |
+| [Testing Library](https://testing-library.com/)  | Component rendering            |
+| [happy-dom](https://github.com/nickvr/happy-dom) | DOM environment (unit suite)   |
+| [Testcontainers](https://testcontainers.com/)    | Ephemeral PostgreSQL (integration) |
+| [Playwright](https://playwright.dev/)            | E2E browser tests              |
 
 ---
 
@@ -35,41 +46,29 @@ This document outlines the testing strategy, conventions, and setup for the Hist
 ### All Tests
 
 ```bash
-# Run all unit/integration tests
+# Unit/component tests (no DB, fast)
 pnpm test
 
-# Run all E2E tests
+# Integration tests (Testcontainer, real DB)
+pnpm test:integration
+
+# E2E tests
 pnpm test:e2e
-```
-
-### Specific Tests
-
-```bash
-# Database tests (RLS policies, etc.)
-pnpm test:db
-
-# Unit/integration tests (components, utils)
-pnpm test
-
-# E2E tests with UI
-pnpm test:e2e:ui
 ```
 
 ### Watch Mode (Development)
 
 ```bash
-# Watch mode for database tests
-pnpm test:db:watch
-
-# Watch mode for unit/integration tests
 pnpm test:watch
+pnpm test:integration:watch
+pnpm test:e2e:ui
 ```
 
 ---
 
 ## Test Data & Users
 
-All tests use a consistent set of test users defined in `src/db/test-utils/users.ts`:
+All tests use a consistent set of test users defined in `src/test-utils/users.ts`:
 
 | User  | Email            | Role  | Cards | Purpose                     |
 | ----- | ---------------- | ----- | ----- | --------------------------- |
@@ -93,10 +92,10 @@ Test user IDs use predictable patterns for easy reference:
 
 ```typescript
 // In database tests
-import { TEST_USERS, TEST_PASSWORD } from "../src/db/test-utils/users";
+import { TEST_USERS, TEST_PASSWORD } from "../src/test-utils/users";
 
 // In Vitest (unit/integration tests) - uses path alias
-import { TEST_USERS } from "@/db/test-utils";
+import { TEST_USERS } from "@/test-utils";
 
 // In E2E tests - uses JSON export (Node.js compatible)
 import { TEST_USERS, TEST_PASSWORD } from "../test-users";
@@ -106,19 +105,20 @@ import { TEST_USERS, TEST_PASSWORD } from "../test-users";
 
 ## Vitest Configuration
 
-### Database Tests
+### Unit / Component Tests
 
-- **Config:** `vitest.db.config.mts`
-- **Sequential execution:** `fileParallelism: false` ensures RLS tests run sequentially
-- **No DOM:** Tests run in Node environment
-- **Setup:** `src/db/test-utils/setup.ts`
-
-### Unit/Integration Tests
-
-- **Config:** `vitest.config.mts` (`.mts` for ESM)
-- **DOM:** Uses `happy-dom` environment
+- **Config:** `vitest.config.mts`
+- **DOM:** `happy-dom` environment
 - **Setup:** `vitest.setup.ts` (imports `@testing-library/jest-dom`)
-- **Path aliases:** Configured to match `tsconfig.json`
+- **No DB** — mock any I/O at the boundary
+
+### Integration Tests
+
+- **Config:** `vitest.integration.config.mts`
+- **No DOM:** `node` environment
+- **Sequential execution:** `fileParallelism: false`
+- **Setup:** `src/test-utils/integration/global-setup.ts` (Testcontainer) + `src/test-utils/integration/setup.ts`
+- **Includes:** `src/**/*.integration.test.{ts,tsx}`
 
 ---
 
@@ -215,7 +215,7 @@ describe("MyComponent", () => {
 ### RLS/Database Tests
 
 ```typescript
-// src/db/rls.test.ts
+// src/db/rls.integration.test.ts
 import { describe, it, expect } from "vitest";
 import { withRLS } from "./rls";
 import { db } from "./client";
@@ -265,36 +265,45 @@ test.describe("Timeline", () => {
 
 ✅ **DO test:**
 
-- Pure utility functions
-- Validation schemas (Zod)
-- Custom React hooks (non-Server Components)
-- RLS policies and database security
-- Critical user flows via E2E
+- Pure utility functions and Zod schemas (unit)
+- Component rendering for different state shapes (unit, mock `useActionState`)
+- Server Actions — validation paths, error mapping, success returns (unit with mocked Next.js runtime; integration with real DB)
+- RLS policies and database security (integration)
+- Better Auth API flows: sign up, sign in, duplicate email, bad credentials (integration)
+- Critical user flows (E2E)
 
 ❌ **DON'T test:**
 
 - Third-party library components (shadcn/ui, etc.)
-- Implementation details (internal state)
-- Styling/visual appearance (unless critical)
-- Server Actions via unit tests (use E2E instead)
+- Async Server Components in Vitest (use E2E)
+- Implementation details or internal state
+- Styling/visual appearance
+- `<Link>` elements, button existence, layout
 
 ### File Naming
 
-- Unit tests: `{name}.test.ts` or `{name}.test.tsx`
-- E2E tests: `{feature}.spec.ts`
+- Unit/component tests: `{name}.test.ts` or `{name}.test.tsx` (co-located)
+- Integration tests: `{name}.integration.test.ts` or `{name}.integration.test.tsx` (co-located)
+- E2E tests: `{feature}.spec.ts` inside `e2e/tests/`
 - Test utilities: `test-utils/` directories
 
 ### Test Organization
 
 ```
 ├── src/
+│   ├── test-utils/                          # Shared test utilities
+│   │   ├── integration/
+│   │   │   ├── global-setup.ts              # Testcontainer setup/teardown
+│   │   │   └── setup.ts                     # Per-file setup hooks
+│   │   ├── unit/
+│   │   │   └── setup.ts                     # jest-dom matchers
+│   │   ├── users.ts                         # Test user constants
+│   │   ├── users.json                       # Test user data (single source of truth)
+│   │   ├── auth.ts                          # Mock session utilities
+│   │   └── index.ts                         # Re-exports
 │   ├── db/
-│   │   ├── rls.ts           # Source file
-│   │   ├── rls.test.ts      # Test file (colocated)
-│   │   └── test-utils/      # Test utilities
-│   │       ├── users.ts
-│   │       ├── auth.ts
-│   │       └── index.ts
+│   │   ├── rls.ts                           # Source file
+│   │   └── rls.integration.test.ts          # Integration test (colocated)
 │   ├── lib/
 │   │   ├── utils.ts
 │   │   └── utils.test.ts
@@ -306,7 +315,7 @@ test.describe("Timeline", () => {
 │   ├── auth.setup.ts      # Auth setup project
 │   ├── fixtures.ts        # Custom test fixtures
 │   ├── global-setup.ts    # Starts Testcontainer, runs migrations + seed
-│   ├── test-users.ts      # Test user data
+│   ├── test-users.ts      # Test user data (re-exports from src/test-utils)
 │   └── tests/
 │       └── timeline.spec.ts  # E2E test specs
 ```
@@ -317,12 +326,41 @@ test.describe("Timeline", () => {
 
 ### Server Actions in Component Tests
 
-Server Actions cannot be imported in Vitest (they require the Next.js runtime). Mock them at the module level:
+When a component receives a Server Action as a prop or imports one, mock it at the module level. The `"use server"` directive is ignored in tests — actions are plain async functions, but their Next.js runtime dependencies (`headers()`, `redirect()`) are not available in the unit suite:
 
 ```typescript
-vi.mock("@/app/actions", () => ({
-  signOutAction: vi.fn(),
+vi.mock("@/components/auth/actions", () => ({
+  signUpAction: vi.fn(),
 }));
+```
+
+For testing the **action logic itself** (validation, error mapping, DB calls), see integration tests below.
+
+### Next.js Runtime APIs
+
+Two Next.js APIs always need mocking when testing Server Actions directly:
+
+```typescript
+vi.mock("next/headers", () => ({ headers: vi.fn().mockResolvedValue({}) }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+```
+
+### `useActionState` in Component Tests
+
+Mock `useActionState` to inject controlled state:
+
+```typescript
+vi.mock("react", async (importActual) => ({
+  ...(await importActual<typeof import("react")>()),
+  useActionState: vi.fn(),
+}));
+
+// In each test:
+vi.mocked(useActionState).mockReturnValue([
+  { fieldErrors: { email: "Please enter a valid email address" } },
+  vi.fn(),
+  false,
+]);
 ```
 
 ### Database in RLS Tests
@@ -340,11 +378,58 @@ See [Testcontainer Test Isolation](#testcontainer-test-isolation) for details.
 Use `createMockSession` for components that need auth context:
 
 ```typescript
-import { createMockSession } from "@/db/test-utils";
-import { TEST_USERS } from "@/db/test-utils";
+import { createMockSession } from "@/test-utils";
+import { TEST_USERS } from "@/test-utils";
 
 const mockSession = createMockSession(TEST_USERS.alice);
 ```
+
+---
+
+## Integration Test Isolation
+
+Each integration test must leave the database in the same state it found it. Two strategies:
+
+### Transactional rollback (Drizzle queries)
+
+Wrap the test body in a transaction that rolls back in `afterEach`. Zero performance cost, perfect isolation:
+
+```typescript
+import { db } from "@/db/client";
+
+let tx: Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+beforeEach(async () => {
+  await new Promise<void>((resolve) => {
+    db.transaction(async (t) => {
+      tx = t;
+      resolve();
+      // keep transaction open until afterEach rolls it back
+      await new Promise(() => {});
+    }).catch(() => {});
+  });
+});
+
+afterEach(async () => {
+  await tx.rollback();
+});
+```
+
+> Use this for tests that run Drizzle queries directly (e.g. RLS tests, card CRUD).
+
+### Explicit cleanup (Better Auth operations)
+
+Better Auth manages its own transactions internally — transactional rollback cannot wrap them. Use `afterEach` to delete rows created by the test:
+
+```typescript
+afterEach(async () => {
+  await db.delete(user).where(eq(user.email, "newuser@test.local"));
+});
+```
+
+> Use this for auth integration tests (`signUpAction`, `auth.api.signUpEmail`, etc.).
+
+**Never use per-test Testcontainers** — startup cost (~5–10s each) makes them impractical. The global Testcontainer is seeded once per suite run; tests are responsible for their own cleanup.
 
 ---
 
@@ -386,12 +471,12 @@ Tests are integrated into the CI pipeline via the [verify workflow](../.github/w
 
 ### What Runs in CI
 
-| Test Type         | Runs In CI | Notes                                  |
-| ----------------- | :--------: | -------------------------------------- |
-| Linting           |     ✅     | `pnpm lint`                            |
-| Unit tests        |     ✅     | Against Testcontainer                  |
-| Integration tests |     ✅     | RLS tests against Testcontainer        |
-| E2E tests         |     ✅     | Playwright against Testcontainer       |
+| Test Type         | Runs In CI | Command                    |
+| ----------------- | :--------: | -------------------------- |
+| Linting           |     ✅     | `pnpm lint`                |
+| Unit/component    |     ✅     | `pnpm test`                |
+| Integration       |     ✅     | `pnpm test:integration`    |
+| E2E               |     ✅     | `pnpm test:e2e`            |
 
 ### CI Workflow
 

@@ -26,6 +26,7 @@ export async function setup() {
 
   const connectionString = container.getConnectionUri();
   process.env.DATABASE_URL = connectionString;
+  process.env.BETTER_AUTH_URL = "http://localhost:3000";
 
   // Run migrations
   console.log("   Running migrations...\n");
