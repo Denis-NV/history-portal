@@ -198,7 +198,12 @@ const monitoringApi = new gcp.projects.Service("monitoring-api", {
 // The default Compute Engine service account needs these roles to export
 // traces and metrics from the OTel SDK to GCP.
 // ─────────────────────────────────────────────────────────────────────────────
-const defaultComputeSA = `serviceAccount:${project}-compute@developer.gserviceaccount.com`;
+// The default Compute Engine service account uses the project NUMBER (not ID):
+// <project-number>-compute@developer.gserviceaccount.com
+const projectInfo = gcp.organizations.getProjectOutput({ projectId: project });
+const defaultComputeSA = projectInfo.number.apply(
+  (num) => `serviceAccount:${num}-compute@developer.gserviceaccount.com`
+);
 
 new gcp.projects.IAMMember("portal-trace-agent", {
   project,

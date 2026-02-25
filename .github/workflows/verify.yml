@@ -94,11 +94,19 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
+      # Cache downloaded .deb packages to a user-writable directory.
+      # /var/cache/apt/archives can't be cached directly — its lock/partial
+      # files are root-owned and cause tar permission errors on save.
       - name: Cache Playwright apt dependencies
         uses: actions/cache@v4
+        id: apt-cache
         with:
-          path: /var/cache/apt/archives
+          path: /tmp/playwright-apt-cache
           key: apt-playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Restore apt packages from cache
+        if: steps.apt-cache.outputs.cache-hit == 'true'
+        run: sudo cp /tmp/playwright-apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -107,6 +115,12 @@ jobs:
       - name: Install Playwright deps (cached browsers)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps
+
+      - name: Save apt packages to cache
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/playwright-apt-cache
+          sudo cp /var/cache/apt/archives/*.deb /tmp/playwright-apt-cache/ 2>/dev/null || true
 
       - name: Run E2E tests
         run: pnpm test:e2e
