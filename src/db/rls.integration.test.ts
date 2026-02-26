@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { withRLS, withAdminAccess } from "./rls";
 import { card } from "./schema";
-import { TEST_USERS } from "./test-utils";
+import { TEST_USERS } from "@/test-utils";
 import { count, eq } from "drizzle-orm";
 
 /**

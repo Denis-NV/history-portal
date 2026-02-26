@@ -15,14 +15,14 @@ export default defineConfig({
     // Include component tests (.test.tsx) and API tests (.test.ts)
     include: ["src/**/*.test.{ts,tsx}"],
 
-    // Exclude E2E tests (Playwright) and db tests (separate vitest config)
-    exclude: ["node_modules", "e2e/**", "src/db/**"],
+    // Exclude E2E tests (Playwright) and integration tests (separate vitest config)
+    exclude: ["node_modules", "e2e/**", "src/**/*.integration.test.{ts,tsx}"],
 
     // Use happy-dom for component tests
     environment: "happy-dom",
 
     // Setup files for React Testing Library
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["./src/test-utils/unit/setup.ts"],
 
     // Enable globals for cleaner test syntax (describe, it, expect)
     globals: true,

@@ -648,7 +648,7 @@ Tests use **Testcontainers** (`@testcontainers/postgresql`) to create ephemeral 
 4. Tests execute against the isolated container
 5. Teardown stops and removes the container
 
-See `src/db/test-utils/global-setup.ts` (Vitest) and `e2e/global-setup.ts` (Playwright).
+See `src/test-utils/integration/global-setup.ts` (Vitest) and `e2e/global-setup.ts` (Playwright).
 
 
 ---

@@ -5,7 +5,7 @@
  *
  * @example
  * ```ts
- * import { TEST_USERS, TEST_PASSWORD, createMockSession } from "@/db/test-utils";
+ * import { TEST_USERS, TEST_PASSWORD, createMockSession } from "@/test-utils";
  * ```
  */
 

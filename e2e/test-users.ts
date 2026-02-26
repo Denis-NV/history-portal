@@ -1,7 +1,7 @@
 /**
  * Test User Constants for E2E Tests
  *
- * Imports from src/db/test-utils (single source of truth).
+ * Imports from src/test-utils (single source of truth).
  * - JSON data: works natively in Node.js without TypeScript loader
  * - Types: use `import type` which is erased at compile time
  *
@@ -10,8 +10,8 @@
  * Node.js handles JSON natively.
  */
 
-import usersData from "../src/db/test-utils/users.json";
-import type { TestUser, TestUserKey } from "../src/db/test-utils";
+import usersData from "../src/test-utils/users.json";
+import type { TestUser, TestUserKey } from "../src/test-utils";
 
 export type { TestUser, TestUserKey };
 

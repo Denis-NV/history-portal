@@ -24,7 +24,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 
 import * as schema from "../../src/db/schema";
 import { connectionString } from "../../src/db/config";
-import { TEST_USERS, TEST_PASSWORD } from "../../src/db/test-utils/users";
+import { TEST_USERS, TEST_PASSWORD } from "../../src/test-utils/users";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Password Hashing (Better Auth compatible - scrypt with exact parameters)
