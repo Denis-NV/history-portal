@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, user } from "@/db";
 import { TEST_USERS, TEST_PASSWORD } from "@/test-utils";
@@ -10,7 +10,10 @@ import {
   resetPasswordAction,
 } from "./actions";
 
-vi.mock("next/headers", () => ({ headers: vi.fn().mockResolvedValue({}) }));
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue({}),
+  cookies: vi.fn().mockResolvedValue({ set: vi.fn() }),
+}));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
 const { redirect } = await import("next/navigation");
@@ -118,6 +121,10 @@ describe("signUpAction", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("signInAction", () => {
+  beforeEach(() => {
+    vi.mocked(redirect).mockClear();
+  });
+
   it("calls redirect with AFTER_SIGN_IN for valid credentials", async () => {
     const formData = new FormData();
     formData.set("email", TEST_USERS.alice.email);
