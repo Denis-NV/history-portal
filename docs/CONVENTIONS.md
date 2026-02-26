@@ -126,19 +126,26 @@ src/components/common/
 
 ### Index Files
 
-Use `index.ts` files **only inside individual component folders** (not at the `common/` level):
+Use `index.ts` files **only inside individual component folders** — not at the feature folder level (e.g., no `auth/index.ts`):
 
 ```tsx
-// src/components/common/header/index.ts
-export { Header } from "./header";
+// src/components/auth/sign-in-form/index.ts
+export { SignInForm } from "./sign-in-form";
 ```
 
-Import components from their folder:
+Import components from their **component folder path**, never from the feature folder:
 
 ```tsx
+// ✅ Correct — import from the component folder
+import { SignInForm } from "@/components/auth/sign-in-form";
 import { Header } from "@/components/common/header";
-import { SignOutButton } from "@/components/common/sign-out-button";
+
+// ❌ Incorrect — barrel import from feature folder
+import { SignInForm } from "@/components/auth";
+import { Header } from "@/components/common";
 ```
+
+**Why no feature-level barrels?** Barrel files (`auth/index.ts` re-exporting everything) obscure import origins, cause accidental coupling between components, and complicate tree-shaking. Direct folder imports make dependencies explicit.
 
 ---
 

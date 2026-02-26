@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ForgotPasswordForm } from "@/components/auth";
+import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { getSession } from "@/lib/auth/session";
 import { REDIRECT } from "@/const";
 
