@@ -15,52 +15,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { signUpAction, type SignUpState } from "./actions";
+import { signInAction, type FormState } from "../actions";
 import { signIn } from "@/lib/auth/client";
 import { AUTH_ROUTES, REDIRECT } from "@/const";
 
-const initialState: SignUpState = {};
+const initialState: FormState = {};
 
-export function SignUpForm() {
+export const SignInForm = () => {
   const [state, formAction, isPending] = useActionState(
-    signUpAction,
+    signInAction,
     initialState
   );
-
-  // Show success message after sign-up
-  if (state.success) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Check your email</CardTitle>
-          <CardDescription>
-            We&apos;ve sent you a verification link
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Please check your inbox and click the verification link to activate
-            your account.
-          </p>
-          <p className="text-center text-sm text-muted-foreground">
-            Already verified?{" "}
-            <Link
-              href={AUTH_ROUTES.SIGN_IN}
-              className="text-primary hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>Enter your details to get started</CardDescription>
+        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardDescription>Sign in to your account to continue</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
@@ -69,24 +40,6 @@ export function SignUpForm() {
               {state.error}
             </div>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              placeholder="Your name"
-              autoComplete="name"
-              defaultValue={state.values?.name}
-              aria-invalid={!!state.fieldErrors?.name}
-            />
-            {state.fieldErrors?.name && (
-              <p className="text-sm text-destructive">
-                {state.fieldErrors.name}
-              </p>
-            )}
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -113,7 +66,7 @@ export function SignUpForm() {
               name="password"
               type="password"
               placeholder="••••••••"
-              autoComplete="new-password"
+              autoComplete="current-password"
               aria-invalid={!!state.fieldErrors?.password}
             />
             {state.fieldErrors?.password && (
@@ -123,26 +76,18 @@ export function SignUpForm() {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              autoComplete="new-password"
-              aria-invalid={!!state.fieldErrors?.confirmPassword}
-            />
-            {state.fieldErrors?.confirmPassword && (
-              <p className="text-sm text-destructive">
-                {state.fieldErrors.confirmPassword}
-              </p>
-            )}
+          <div className="flex justify-end">
+            <Link
+              href={AUTH_ROUTES.FORGOT_PASSWORD}
+              className="text-sm text-muted-foreground hover:text-primary"
+            >
+              Forgot password?
+            </Link>
           </div>
 
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Create Account
+            Sign In
           </Button>
 
           <div className="relative my-4">
@@ -173,16 +118,16 @@ export function SignUpForm() {
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
-              href={AUTH_ROUTES.SIGN_IN}
+              href={AUTH_ROUTES.SIGN_UP}
               className="text-primary hover:underline"
             >
-              Sign in
+              Sign up
             </Link>
           </p>
         </form>
       </CardContent>
     </Card>
   );
-}
+};

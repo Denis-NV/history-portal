@@ -8,7 +8,7 @@ vi.mock("react", async (importActual) => ({
   useActionState: vi.fn(),
 }));
 
-vi.mock("./actions", () => ({
+vi.mock("../actions", () => ({
   signUpAction: vi.fn(),
 }));
 

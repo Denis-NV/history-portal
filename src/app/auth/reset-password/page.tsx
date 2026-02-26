@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { ResetPasswordForm } from "@/components/auth";
+import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { getSession } from "@/lib/auth/session";
 import { REDIRECT } from "@/const";
 

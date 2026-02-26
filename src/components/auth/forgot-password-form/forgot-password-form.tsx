@@ -14,12 +14,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { forgotPasswordAction, type FormState } from "./actions";
+import { forgotPasswordAction, type FormState } from "../actions";
 import { AUTH_ROUTES } from "@/const";
 
 const initialState: FormState = {};
 
-export function ForgotPasswordForm() {
+export const ForgotPasswordForm = () => {
   const [state, formAction, isPending] = useActionState(
     forgotPasswordAction,
     initialState
@@ -83,4 +83,4 @@ export function ForgotPasswordForm() {
       </CardContent>
     </Card>
   );
-}
+};

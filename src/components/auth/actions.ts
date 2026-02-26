@@ -36,7 +36,7 @@ export type SignUpState = FormState;
  * Converts technical error messages to user-friendly ones.
  * Logs the original error for debugging.
  */
-function getUserFriendlyError(err: unknown, fallback: string): string {
+const getUserFriendlyError = (err: unknown, fallback: string): string => {
   const message = err instanceof Error ? err.message : String(err);
 
   // Log for server-side debugging
@@ -91,10 +91,10 @@ function getUserFriendlyError(err: unknown, fallback: string): string {
 // Sign Up Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function signUpAction(
+export const signUpAction = async (
   _prevState: FormState,
   formData: FormData
-): Promise<FormState> {
+): Promise<FormState> => {
   const data = {
     name: formData.get("name") as string,
     email: formData.get("email") as string,
@@ -147,10 +147,10 @@ export async function signUpAction(
 // Sign In Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function signInAction(
+export const signInAction = async (
   _prevState: FormState,
   formData: FormData
-): Promise<FormState> {
+): Promise<FormState> => {
   const data = {
     email: formData.get("email") as string,
     password: formData.get("password") as string,
@@ -202,10 +202,10 @@ export async function signInAction(
 // Forgot Password Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function forgotPasswordAction(
+export const forgotPasswordAction = async (
   _prevState: FormState,
   formData: FormData
-): Promise<FormState> {
+): Promise<FormState> => {
   const data = {
     email: formData.get("email") as string,
   };
@@ -244,10 +244,10 @@ export async function forgotPasswordAction(
 // Reset Password Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function resetPasswordAction(
+export const resetPasswordAction = async (
   _prevState: FormState,
   formData: FormData
-): Promise<FormState> {
+): Promise<FormState> => {
   const token = formData.get("token") as string;
 
   if (!token) {
@@ -299,7 +299,7 @@ export async function resetPasswordAction(
 // Sign Out Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function signOutAction(): Promise<void> {
+export const signOutAction = async (): Promise<void> => {
   await auth.api.signOut({
     headers: await headers(),
   });

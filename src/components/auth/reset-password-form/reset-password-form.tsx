@@ -15,12 +15,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/card";
-import { resetPasswordAction, type FormState } from "./actions";
+import { resetPasswordAction, type FormState } from "../actions";
 import { AUTH_ROUTES } from "@/const";
 
 const initialState: FormState = {};
 
-export function ResetPasswordForm() {
+export const ResetPasswordForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -117,4 +117,4 @@ export function ResetPasswordForm() {
       </CardContent>
     </Card>
   );
-}
+};
